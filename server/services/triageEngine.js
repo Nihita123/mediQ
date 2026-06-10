@@ -1,31 +1,27 @@
 /**
- * services/triageEngine.js — Hybrid AI Triage Orchestrator (v2)
+ * services/triageEngine.js  (v3)
  *
- * Architecture:
- *   PRIMARY   → LLM-powered reasoning (aiService.js)
- *   FALLBACK  → Rule-based system (symptomExtractor, questionEngine, triageAssessor)
+ * Architecture: LLM → structured JSON → reasoning engine → reply
  *
- * The fallback engages automatically if:
- *   - No LLM provider is configured
- *   - The LLM call throws any error
- *   - The LLM returns unparseable output
+ * Flow:
+ *   1. LLM extracts rich clinicalContext from patient text
+ *   2. Reasoning engine (clinicalReasoner) calculates interim risk,
+ *      detects trauma, determines what's missing
+ *   3. LLM decides WHAT to ask next (returns JSON decision, not text)
+ *   4. Reasoning engine builds the actual patient-facing reply
  *
- * State machine (unchanged):
- *   STARTED → SYMPTOM_COLLECTION → FOLLOW_UP_QUESTIONS → ASSESSMENT_READY → SUMMARY_READY
- *
- * Public API:
- *   processMessage(session, userText) → { reply }   [async in LLM mode]
+ * Rule-based fallback is used when no LLM is configured or LLM fails.
+ * Fallback uses the expanded symptomExtractor + clinicalReasoner for
+ * trauma detection and semantic understanding.
  */
 
-// ─── LLM Layer ────────────────────────────────────────────────────────────────
-const aiService = require('./aiService');
+const aiService      = require('./aiService');
+const clinicalReasoner = require('./reasoning/clinicalReasoner');
 
-// ─── Rule-based Fallback Layer ────────────────────────────────────────────────
-const { extractSymptoms, mergeSymptoms }               = require('./symptomExtractor');
-const { getNextQuestion, countRemainingRequired }       = require('./questionEngine');
-const { assessRisk, generateSummary: rulesSummary }     = require('./triageAssessor');
+const { extractSymptoms, extractClinicalContext, mergeSymptoms } = require('./symptomExtractor');
+const { getNextQuestion: rulesGetNextQuestion, getQuestionById } = require('./questionEngine');
+const { assessRisk, generateSummary: rulesSummary }              = require('./triageAssessor');
 
-// ─── State Constants ──────────────────────────────────────────────────────────
 const STATE = {
   STARTED:             'STARTED',
   SYMPTOM_COLLECTION:  'SYMPTOM_COLLECTION',
@@ -34,44 +30,33 @@ const STATE = {
   SUMMARY_READY:       'SUMMARY_READY',
 };
 
-// After this many Q&A pairs, force assessment even if LLM wants more questions
 const MAX_FOLLOW_UP_QUESTIONS = 8;
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// ─── Shared Helpers ───────────────────────────────────────────────────────────
 
 function getAnsweredIds(answeredQuestions) {
   return answeredQuestions.map((a) => a.questionId);
 }
 
 function getSymptomKeys(session) {
-  // 1. Use the authoritatively stored keys if available (set on first extraction)
-  if (session.symptomKeys && session.symptomKeys.length > 0) {
-    return session.symptomKeys;
-  }
+  if (session.symptomKeys?.length > 0) return session.symptomKeys;
 
-  // 2. Fall back to keys referenced in answered questions
   const fromAnswered = session.answeredQuestions
     .map((a) => a.symptomKey)
     .filter((k) => k && k !== 'llm' && k !== 'unknown');
+  if (fromAnswered.length > 0) return Array.from(new Set(fromAnswered));
 
-  if (fromAnswered.length > 0) {
-    return Array.from(new Set(fromAnswered));
-  }
-
-  // 3. Last resort: derive from labels (unreliable — only reached for legacy sessions)
-  return session.extractedSymptoms.map((label) =>
-    label.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '')
+  return session.extractedSymptoms.map((l) =>
+    l.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '')
   );
 }
 
-/**
- * Format session state as a short log line for console output.
- */
 function logState(session, engine, action) {
-  console.log(`[Triage][${engine}] state=${session.triageState} action=${action}`);
+  if (process.env.NODE_ENV !== 'production') {
+    console.log(`[Triage][${engine}] state=${session.triageState} action=${action}`);
+  }
 }
 
-// ─── Patient-facing Urgency Messages ─────────────────────────────────────────
 const URGENCY_MESSAGES = {
   critical: '🚨 Based on your symptoms, please **seek emergency care immediately** or call 911.',
   high:     '⚠️ Your symptoms suggest you should be seen **urgently today**. Please visit an urgent care centre or emergency department.',
@@ -80,166 +65,177 @@ const URGENCY_MESSAGES = {
   unknown:  '📋 Please consult a healthcare provider for a proper evaluation.',
 };
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// LLM PATH
-// ═══════════════════════════════════════════════════════════════════════════════
-
 /**
- * Handle SYMPTOM_COLLECTION state using the LLM extractor.
+ * Merge new clinical context into the session's existing context.
+ * Preserves all previously collected data.
  */
-async function llmHandleSymptomCollection(session, userText) {
-  const entities = await aiService.extractEntities(userText);
+function mergeClinicalContext(existing, incoming) {
+  if (!existing) return incoming;
+  if (!incoming) return existing;
 
-  // Merge extracted symptoms into session
-  if (entities.symptoms.length > 0) {
-    session.extractedSymptoms = mergeSymptoms(session.extractedSymptoms, entities.symptoms);
-    // Store the authoritative keys derived from the LLM-extracted symptom labels
-    const { extractSymptoms: ruleExtract } = require('./symptomExtractor');
-    const existingKeys = session.symptomKeys || [];
-    const newKeys = entities.symptoms.flatMap(s => ruleExtract(s).symptomKeys);
-    session.symptomKeys = Array.from(new Set([...existingKeys, ...newKeys]));
+  return {
+    primarySymptom:        incoming.primarySymptom        || existing.primarySymptom,
+    bodyPart:              incoming.bodyPart               || existing.bodyPart,
+    symptoms:              mergeSymptoms(existing.symptoms || [], incoming.symptoms || []),
+    duration:              existing.duration               || incoming.duration,
+    severity:              existing.severity               || incoming.severity,
+    mechanismOfInjury:     existing.mechanismOfInjury      || incoming.mechanismOfInjury,
+    recentTrauma:          existing.recentTrauma           || incoming.recentTrauma === true,
+    functionalLimitations: mergeSymptoms(existing.functionalLimitations || [], incoming.functionalLimitations || []),
+    associatedSymptoms:    mergeSymptoms(existing.associatedSymptoms || [], incoming.associatedSymptoms || []),
+    medicalHistory:        mergeSymptoms(existing.medicalHistory || [], incoming.medicalHistory || []),
+    medications:           mergeSymptoms(existing.medications || [], incoming.medications || []),
+    allergies:             mergeSymptoms(existing.allergies || [], incoming.allergies || []),
+    vitalSigns:            { ...(existing.vitalSigns || {}), ...(incoming.vitalSigns || {}) },
+    riskFactors:           mergeSymptoms(existing.riskFactors || [], incoming.riskFactors || []),
+    missingCriticalInfo:   incoming.missingCriticalInfo    || existing.missingCriticalInfo || [],
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// LLM PATH  (v3 — structured JSON architecture)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+async function llmHandleSymptomCollection(session, userText) {
+  // 1. Extract rich clinical context from patient text
+  const newContext = await aiService.extractEntities(userText, session.clinicalContext);
+  session.clinicalContext = mergeClinicalContext(session.clinicalContext, newContext);
+
+  // 2. Update extractedSymptoms + symptomKeys for the rules engine / UI
+  const allSymptomLabels = [
+    ...(newContext.symptoms || []),
+    ...(newContext.primarySymptom ? [newContext.primarySymptom] : []),
+  ];
+  if (allSymptomLabels.length > 0) {
+    session.extractedSymptoms = mergeSymptoms(session.extractedSymptoms, allSymptomLabels);
+    // Map to rule engine keys as well (for fallback routing)
+    const newKeys = allSymptomLabels.flatMap((s) => extractSymptoms(s).symptomKeys);
+    session.symptomKeys = Array.from(new Set([...(session.symptomKeys || []), ...newKeys]));
   }
 
-  // Store structured entities on the session
-  session.medicalEntities = {
-    symptoms:       entities.symptoms,
-    duration:       entities.duration,
-    severity:       entities.severity,
-    medicalHistory: entities.medicalHistory,
-    medications:    entities.medications,
-    allergies:      entities.allergies,
-    vitalSigns:     entities.vitalSigns,
-  };
+  // 3. Update interim risk
+  session.interimRiskLevel = clinicalReasoner.calculateInterimRisk(session.clinicalContext);
 
-  // If nothing was extracted, ask the patient to be more specific
-  if (session.extractedSymptoms.length === 0) {
+  if (session.extractedSymptoms.length === 0 && !session.clinicalContext.primarySymptom) {
+    // Nothing recognisable — ask patient to elaborate with context
     return {
-      reply:
-        "I want to make sure I understand your symptoms clearly. Could you describe what you're experiencing in a bit more detail? For example: 'I have chest pain and feel short of breath.'",
+      reply: "I want to make sure I understand correctly. Could you describe what you're experiencing? For example: 'I fell and my ankle is hurting' or 'I have chest pain and shortness of breath.'",
     };
   }
 
   session.triageState = STATE.FOLLOW_UP_QUESTIONS;
   session.aiEngine    = 'llm';
 
-  // Get the first follow-up question
-  const question = await aiService.getNextQuestion({
-    extractedSymptoms: session.extractedSymptoms,
-    answeredQuestions:  session.answeredQuestions,
-    entities:           session.medicalEntities,
-    askedQuestions:     session.answeredQuestions.map((q) => q.question),
+  // 4. Get LLM's structured question decision
+  const decision = await aiService.getNextQuestion({
+    clinicalContext:     session.clinicalContext,
+    answeredQuestions:   session.answeredQuestions,
+    conversationHistory: session.messages,
+    lastPatientMessage:  userText,
   });
 
-  if (!question) {
+  if (decision.decision === 'assessment_ready') {
     return llmHandleAssessmentReady(session);
   }
 
-  // Store so the first answer is filed against the correct question
-  session.lastAskedQuestionId   = `llm_q_1`;
-  session.lastAskedQuestionText = question;
+  // 5. Store the question pointer
+  session.lastAskedQuestionId   = decision.questionId;
+  session.lastAskedQuestionText = decision.questionText;
 
-  const bulletList = session.extractedSymptoms.map((s) => `• ${s}`).join('\n');
-  return {
-    reply: `I've noted the following:\n${bulletList}\n\nI have a few follow-up questions.\n\n${question}`,
-  };
+  // 6. Build contextually aware reply
+  const reply = clinicalReasoner.buildFirstResponse(
+    session.clinicalContext,
+    decision.questionText,
+    session.extractedSymptoms.slice(0, 3)
+  );
+
+  return { reply };
 }
 
-/**
- * Handle FOLLOW_UP_QUESTIONS state using LLM dynamic questioning.
- */
 async function llmHandleFollowUpQuestions(session, userText) {
-  // ── Step 1: File the answer to the LAST ASKED question ────────────────────
-  // Use lastAskedQuestionText (stored when we sent the question) so we always
-  // file the answer against the right question, not whatever the LLM picks next.
-  const lastQuestion = session.lastAskedQuestionText
-    || ([...session.messages].filter((m) => m.role === 'assistant').pop()?.content)
-    || 'Follow-up question';
-
-  session.answeredQuestions.push({
-    questionId: `llm_q_${session.answeredQuestions.length + 1}`,
-    question:   lastQuestion,
-    answer:     userText.trim(),
-    symptomKey: 'llm',
-  });
-
-  // Clear the pointer
-  session.lastAskedQuestionId   = null;
-  session.lastAskedQuestionText = null;
-
-  // Also check for new symptoms in the answer
-  const { symptoms: newSymptoms } = extractSymptoms(userText);
-  if (newSymptoms.length > 0) {
-    session.extractedSymptoms = mergeSymptoms(session.extractedSymptoms, newSymptoms);
-  }
-
-  // Check LLM extraction on the answer for entities too
-  try {
-    const answerEntities = await aiService.extractEntities(userText);
-    if (answerEntities.symptoms.length > 0) {
-      session.extractedSymptoms = mergeSymptoms(session.extractedSymptoms, answerEntities.symptoms);
+  // 1. File the answer to the LAST ASKED question
+  if (session.lastAskedQuestionId) {
+    const alreadyAnswered = session.answeredQuestions.some(
+      (a) => a.questionId === session.lastAskedQuestionId
+    );
+    if (!alreadyAnswered) {
+      session.answeredQuestions.push({
+        questionId: session.lastAskedQuestionId,
+        question:   session.lastAskedQuestionText || session.lastAskedQuestionId,
+        answer:     userText.trim(),
+        symptomKey: 'llm',
+      });
     }
-    // Merge into medicalEntities
-    const existing = session.medicalEntities || {};
-    session.medicalEntities = {
-      symptoms:       mergeSymptoms(existing.symptoms || [], answerEntities.symptoms),
-      duration:       existing.duration       || answerEntities.duration,
-      severity:       existing.severity       || answerEntities.severity,
-      medicalHistory: mergeSymptoms(existing.medicalHistory || [], answerEntities.medicalHistory),
-      medications:    mergeSymptoms(existing.medications    || [], answerEntities.medications),
-      allergies:      mergeSymptoms(existing.allergies      || [], answerEntities.allergies),
-      vitalSigns:     { ...(existing.vitalSigns || {}), ...(answerEntities.vitalSigns || {}) },
-    };
-  } catch {
-    // Non-fatal — continue with existing entities
+    session.lastAskedQuestionId   = null;
+    session.lastAskedQuestionText = null;
   }
 
-  // Force assessment if we've asked the maximum number of questions
+  // 2. Re-extract context from the answer to pick up NEW information
+  try {
+    const answerContext = await aiService.extractEntities(userText, session.clinicalContext);
+    session.clinicalContext = mergeClinicalContext(session.clinicalContext, answerContext);
+
+    // Merge any newly extracted symptom labels
+    const newLabels = [...(answerContext.symptoms || [])];
+    if (newLabels.length > 0) {
+      session.extractedSymptoms = mergeSymptoms(session.extractedSymptoms, newLabels);
+    }
+  } catch {
+    // Non-fatal — continue with existing context
+  }
+
+  // 3. Re-calculate interim risk after every answer
+  session.interimRiskLevel = clinicalReasoner.calculateInterimRisk(session.clinicalContext);
+
+  // 4. Cap at max questions
   if (session.answeredQuestions.length >= MAX_FOLLOW_UP_QUESTIONS) {
     return llmHandleAssessmentReady(session);
   }
 
-  // Ask LLM for next question
-  const nextQuestion = await aiService.getNextQuestion({
-    extractedSymptoms: session.extractedSymptoms,
-    answeredQuestions:  session.answeredQuestions,
-    entities:           session.medicalEntities || {},
-    askedQuestions:     session.answeredQuestions.map((q) => q.question),
+  // 5. Get LLM's next structured question decision
+  const decision = await aiService.getNextQuestion({
+    clinicalContext:     session.clinicalContext,
+    answeredQuestions:   session.answeredQuestions,
+    conversationHistory: session.messages,
+    lastPatientMessage:  userText,
   });
 
-  if (!nextQuestion) {
+  if (decision.decision === 'assessment_ready') {
     return llmHandleAssessmentReady(session);
   }
 
-  // Store so the next answer is filed against the correct question
-  session.lastAskedQuestionId   = `llm_q_${session.answeredQuestions.length + 1}`;
-  session.lastAskedQuestionText = nextQuestion;
+  // 6. Store and build reply
+  session.lastAskedQuestionId   = decision.questionId;
+  session.lastAskedQuestionText = decision.questionText;
 
-  return { reply: nextQuestion };
+  const reply = clinicalReasoner.buildReply(decision, session.clinicalContext, userText);
+  return { reply };
 }
 
-/**
- * Perform LLM-powered triage assessment and generate structured summary.
- */
 async function llmHandleAssessmentReady(session) {
   session.triageState = STATE.ASSESSMENT_READY;
 
-  // Run triage assessment
+  // Use clinicalReasoner for initial department routing
+  const { department: routedDept, riskLevel: routedRisk } =
+    clinicalReasoner.routeDepartment(session.clinicalContext);
+
+  // Run full LLM triage for confidence scoring + reasoning
   const triageResult = await aiService.assessTriage({
     extractedSymptoms: session.extractedSymptoms,
     answeredQuestions:  session.answeredQuestions,
-    entities:           session.medicalEntities || {},
+    entities:           session.clinicalContext || {},
     messages:           session.messages,
   });
 
-  session.riskLevel    = triageResult.riskLevel;
-  session.department   = triageResult.department;
+  // LLM result takes precedence; use routing as fallback
+  session.riskLevel   = triageResult.riskLevel !== 'unknown' ? triageResult.riskLevel : routedRisk;
+  session.department  = triageResult.department || routedDept;
   session.triageResult = { ...triageResult, generatedBy: 'llm' };
 
-  // Generate structured clinical summary
   const structuredSummary = await aiService.generateSummary({
     extractedSymptoms: session.extractedSymptoms,
     answeredQuestions:  session.answeredQuestions,
-    entities:           session.medicalEntities || {},
+    entities:           session.clinicalContext || {},
     triageResult,
     messages:           session.messages,
   });
@@ -252,83 +248,89 @@ async function llmHandleAssessmentReady(session) {
   session.status      = 'completed';
   session.aiEngine    = 'llm';
 
-  const urgencyMsg = triageResult.urgency || URGENCY_MESSAGES[triageResult.riskLevel] || URGENCY_MESSAGES.unknown;
-  const confidenceText = triageResult.confidence
-    ? ` (confidence: ${Math.round(triageResult.confidence * 100)}%)`
-    : '';
+  const urgencyMsg = triageResult.urgency || URGENCY_MESSAGES[session.riskLevel] || URGENCY_MESSAGES.unknown;
+  const pct = triageResult.confidence ? ` (${Math.round(triageResult.confidence * 100)}% confidence)` : '';
 
-  const reply =
-    `I've completed your intake assessment.\n\n` +
-    `**Symptoms noted:** ${session.extractedSymptoms.join(', ')}\n` +
-    `**Risk level:** ${triageResult.riskLevel.toUpperCase()}${confidenceText}\n` +
-    `**Recommended department:** ${triageResult.department}\n\n` +
-    `${urgencyMsg}\n\n` +
-    `A detailed clinical report has been prepared for your healthcare provider.`;
-
-  return { reply };
-}
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// RULE-BASED FALLBACK PATH  (unchanged logic from v1)
-// ═══════════════════════════════════════════════════════════════════════════════
-
-function rulesHandleStarted(session) {
-  session.triageState = STATE.SYMPTOM_COLLECTION;
-  session.aiEngine    = 'rules';
   return {
-    reply: "Hello! I'm MediQ, your AI health intake assistant. I'm here to help gather information about your symptoms so your care team is better prepared.\n\nPlease describe what you're experiencing today.",
+    reply:
+      `I've completed your intake assessment.\n\n` +
+      `**Symptoms noted:** ${session.extractedSymptoms.join(', ')}\n` +
+      `**Risk level:** ${session.riskLevel.toUpperCase()}${pct}\n` +
+      `**Recommended department:** ${session.department}\n\n` +
+      `${urgencyMsg}\n\n` +
+      `A detailed clinical report has been prepared for your healthcare provider.`,
   };
 }
 
-function rulesHandleSymptomCollection(session, userText) {
-  const { symptoms, symptomKeys } = extractSymptoms(userText);
+// ═══════════════════════════════════════════════════════════════════════════════
+// RULE-BASED FALLBACK PATH  (v3 — uses clinicalReasoner + expanded extractor)
+// ═══════════════════════════════════════════════════════════════════════════════
 
-  if (symptoms.length === 0) {
+function rulesHandleSymptomCollection(session, userText) {
+  // Use expanded extractor
+  const { symptoms, symptomKeys } = extractSymptoms(userText);
+  const ctxFromRules = extractClinicalContext(userText);
+
+  if (symptoms.length === 0 && !ctxFromRules.recentTrauma) {
     return {
-      reply:
-        "I want to make sure I understand your symptoms correctly. Could you describe how you're feeling in more detail? For example: 'I have chest pain and feel dizzy.'",
+      reply: "Could you describe what you're experiencing? For example: 'I fell and hurt my ankle' or 'I have chest pain and shortness of breath.'",
     };
   }
 
   session.extractedSymptoms = mergeSymptoms(session.extractedSymptoms, symptoms);
+  session.symptomKeys = Array.from(new Set([...(session.symptomKeys || []), ...symptomKeys]));
 
-  // Store the authoritative keys so getSymptomKeys never re-derives from labels
-  const existingKeys = session.symptomKeys || [];
-  session.symptomKeys = Array.from(new Set([...existingKeys, ...symptomKeys]));
+  // Build basic clinical context
+  session.clinicalContext = mergeClinicalContext(session.clinicalContext || null, {
+    primarySymptom:        symptoms[0] || null,
+    bodyPart:              null,
+    symptoms,
+    duration:              ctxFromRules.duration,
+    severity:              ctxFromRules.severity,
+    mechanismOfInjury:     ctxFromRules.mechanismOfInjury,
+    recentTrauma:          ctxFromRules.recentTrauma,
+    functionalLimitations: ctxFromRules.functionalLimitations,
+    associatedSymptoms:    [],
+    riskFactors:           ctxFromRules.riskFactors,
+  });
 
+  session.interimRiskLevel = clinicalReasoner.calculateInterimRisk(session.clinicalContext);
   session.triageState = STATE.FOLLOW_UP_QUESTIONS;
   session.aiEngine    = 'rules';
 
-  const bulletList = symptoms.map((s) => `• ${s}`).join('\n');
-  const nextQ = getNextQuestion(session.symptomKeys, getAnsweredIds(session.answeredQuestions));
+  // Trauma detected? Use trauma flow
+  const traumaQ = clinicalReasoner.getNextTraumaQuestion(
+    session.clinicalContext,
+    getAnsweredIds(session.answeredQuestions)
+  );
+  if (traumaQ) {
+    session.lastAskedQuestionId   = traumaQ.id;
+    session.lastAskedQuestionText = traumaQ.text;
+    const reply = clinicalReasoner.buildFirstResponse(session.clinicalContext, traumaQ.text, symptoms);
+    return { reply };
+  }
 
+  // Fall back to predefined flows
+  const nextQ = rulesGetNextQuestion(session.symptomKeys, getAnsweredIds(session.answeredQuestions));
   if (!nextQ) return rulesHandleAssessmentReady(session);
 
-  // Remember which question we just asked so the next answer is filed correctly
   session.lastAskedQuestionId   = nextQ.id;
   session.lastAskedQuestionText = nextQ.text;
 
-  return {
-    reply: `I've noted:\n${bulletList}\n\nI have a few follow-up questions.\n\n${nextQ.text}`,
-  };
+  const reply = clinicalReasoner.buildFirstResponse(session.clinicalContext, nextQ.text, symptoms);
+  return { reply };
 }
 
 function rulesHandleFollowUpQuestions(session, userText) {
   const symptomKeys = getSymptomKeys(session);
 
-  // ── Step 1: File the answer to the LAST ASKED question ────────────────────
-  // We use lastAskedQuestionId (set when we asked the question) so we always
-  // record the answer against the correct question, regardless of queue state.
+  // 1. File answer
   if (session.lastAskedQuestionId) {
     const alreadyAnswered = session.answeredQuestions.some(
       (a) => a.questionId === session.lastAskedQuestionId
     );
-
     if (!alreadyAnswered) {
-      // Find the question definition to get its symptomKey
-      const { getQuestionById } = require('./questionEngine');
       const qDef = getQuestionById(session.lastAskedQuestionId);
-
       session.answeredQuestions.push({
         questionId: session.lastAskedQuestionId,
         question:   session.lastAskedQuestionText || session.lastAskedQuestionId,
@@ -336,50 +338,66 @@ function rulesHandleFollowUpQuestions(session, userText) {
         symptomKey: qDef?.symptomKey || symptomKeys[0] || 'unknown',
       });
     }
-
-    // Clear the pointer — it's been consumed
     session.lastAskedQuestionId   = null;
     session.lastAskedQuestionText = null;
   }
 
-  // Also scan the answer for any newly mentioned symptoms
-  const { symptoms: newSymptoms } = extractSymptoms(userText);
+  // 2. Update clinical context from answer
+  const ctxFromAnswer = extractClinicalContext(userText);
+  const { symptoms: newSymptoms, symptomKeys: newKeys } = extractSymptoms(userText);
   if (newSymptoms.length > 0) {
     session.extractedSymptoms = mergeSymptoms(session.extractedSymptoms, newSymptoms);
+    session.symptomKeys = Array.from(new Set([...(session.symptomKeys || []), ...newKeys]));
+  }
+  if (ctxFromAnswer.recentTrauma || ctxFromAnswer.functionalLimitations.length > 0) {
+    session.clinicalContext = mergeClinicalContext(session.clinicalContext, ctxFromAnswer);
   }
 
-  // ── Step 2: Find the next unanswered question ──────────────────────────────
-  const updatedAnsweredIds = getAnsweredIds(session.answeredQuestions);
-  const updatedSymptomKeys = getSymptomKeys(session);
-  const nextQuestion       = getNextQuestion(updatedSymptomKeys, updatedAnsweredIds);
+  // 3. Re-calculate interim risk
+  session.interimRiskLevel = clinicalReasoner.calculateInterimRisk(session.clinicalContext);
 
-  // Done when no questions remain at all
-  if (!nextQuestion) {
-    return rulesHandleAssessmentReady(session);
+  // 4. Next question — trauma flow first
+  const answeredIds = getAnsweredIds(session.answeredQuestions);
+  const traumaQ = clinicalReasoner.getNextTraumaQuestion(session.clinicalContext, answeredIds);
+  if (traumaQ) {
+    session.lastAskedQuestionId   = traumaQ.id;
+    session.lastAskedQuestionText = traumaQ.text;
+    return { reply: traumaQ.text };
   }
 
-  // Store what we're about to ask so the next answer can be filed correctly
-  session.lastAskedQuestionId   = nextQuestion.id;
-  session.lastAskedQuestionText = nextQuestion.text;
+  // 5. Then predefined flows
+  const nextQ = rulesGetNextQuestion(getSymptomKeys(session), answeredIds);
+  if (!nextQ) return rulesHandleAssessmentReady(session);
 
-  return { reply: nextQuestion.text };
+  session.lastAskedQuestionId   = nextQ.id;
+  session.lastAskedQuestionText = nextQ.text;
+  return { reply: nextQ.text };
 }
 
 function rulesHandleAssessmentReady(session) {
-  const symptomKeys = getSymptomKeys(session);
-  const { riskLevel, department, reason } = assessRisk(symptomKeys, session.answeredQuestions);
+  // Use clinicalReasoner for context-aware routing
+  const { department: ctxDept, riskLevel: ctxRisk } =
+    clinicalReasoner.routeDepartment(session.clinicalContext);
 
-  session.riskLevel   = riskLevel;
-  session.department  = department;
+  const symptomKeys = getSymptomKeys(session);
+  const { riskLevel: ruleRisk, department: ruleDept, reason } =
+    assessRisk(symptomKeys, session.answeredQuestions);
+
+  // Context-aware result wins if it's more specific than rules
+  const finalRisk = ctxRisk !== 'unknown' ? ctxRisk : ruleRisk;
+  const finalDept = ctxDept !== 'General Practice' ? ctxDept : ruleDept;
+
+  session.riskLevel   = finalRisk;
+  session.department  = finalDept;
   session.triageResult = {
-    riskLevel,
-    confidence:        0,
-    department,
-    urgency:           URGENCY_MESSAGES[riskLevel] || URGENCY_MESSAGES.unknown,
-    reasoning:         [reason],
-    redFlags:          [],
+    riskLevel:  finalRisk,
+    confidence: 0,
+    department: finalDept,
+    urgency:    URGENCY_MESSAGES[finalRisk] || URGENCY_MESSAGES.unknown,
+    reasoning:  [reason],
+    redFlags:   session.clinicalContext?.riskFactors || [],
     suggestedFollowUp: 'Follow up with your healthcare provider.',
-    generatedBy:       'rules',
+    generatedBy: 'rules',
   };
 
   const summary = rulesSummary(session.toObject ? session.toObject() : session);
@@ -388,55 +406,37 @@ function rulesHandleAssessmentReady(session) {
   session.status      = 'completed';
   session.aiEngine    = 'rules';
 
-  const reply =
-    `I've completed your intake assessment.\n\n` +
-    `**Symptoms noted:** ${session.extractedSymptoms.join(', ')}\n` +
-    `**Recommended department:** ${department}\n` +
-    `**Assessment:** ${reason}\n\n` +
-    `${URGENCY_MESSAGES[riskLevel] || URGENCY_MESSAGES.unknown}\n\n` +
-    `A detailed report has been prepared for your healthcare provider.`;
-
-  return { reply };
+  return {
+    reply:
+      `I've completed your intake assessment.\n\n` +
+      `**Symptoms noted:** ${session.extractedSymptoms.join(', ')}\n` +
+      `**Recommended department:** ${finalDept}\n` +
+      `**Assessment:** ${reason}\n\n` +
+      `${URGENCY_MESSAGES[finalRisk] || URGENCY_MESSAGES.unknown}\n\n` +
+      `A detailed report has been prepared for your healthcare provider.`,
+  };
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // MAIN ENTRY POINT
 // ═══════════════════════════════════════════════════════════════════════════════
 
-/**
- * Process one user message through the triage state machine.
- *
- * Tries LLM path first, falls back to rules on any error.
- *
- * @param {object} session  — Mongoose session document (mutated in place)
- * @param {string} userText — Raw patient message
- * @returns {Promise<{ reply: string }>}
- */
 async function processMessage(session, userText) {
   const useLLM = aiService.isAvailable();
 
-  // ── Completed sessions ─────────────────────────────────────────────────────
-  if (
-    session.triageState === STATE.ASSESSMENT_READY ||
-    session.triageState === STATE.SUMMARY_READY
-  ) {
-    return {
-      reply:
-        'This session has been completed. Your intake summary is ready for your healthcare provider. If you have new symptoms, please start a new triage session.',
-    };
+  if (session.triageState === STATE.ASSESSMENT_READY || session.triageState === STATE.SUMMARY_READY) {
+    return { reply: 'This session has been completed. If you have new symptoms, please start a new triage session.' };
   }
 
-  // ── STARTED ────────────────────────────────────────────────────────────────
   if (session.triageState === STATE.STARTED) {
     session.triageState = STATE.SYMPTOM_COLLECTION;
     session.aiEngine    = useLLM ? 'llm' : 'rules';
     return {
-      reply:
-        "Hello! I'm MediQ, your AI health intake assistant. I'm here to help gather information about your symptoms so your care team is better prepared.\n\nPlease describe what you're experiencing today — what symptoms or concerns brought you in?",
+      reply: "Hello! I'm MediQ, your AI health intake assistant. I'm here to help gather information about your symptoms so your care team is better prepared.\n\nPlease describe what you're experiencing today — what brought you in?",
     };
   }
 
-  // ── LLM PATH ───────────────────────────────────────────────────────────────
+  // LLM path
   if (useLLM) {
     try {
       if (session.triageState === STATE.SYMPTOM_COLLECTION) {
@@ -449,11 +449,10 @@ async function processMessage(session, userText) {
       }
     } catch (err) {
       console.error(`[Triage][LLM] Error — falling back to rules: ${err.message}`);
-      // Fall through to rules
     }
   }
 
-  // ── RULES FALLBACK ─────────────────────────────────────────────────────────
+  // Rules fallback
   logState(session, 'RULES', session.triageState);
 
   if (session.triageState === STATE.SYMPTOM_COLLECTION) {
@@ -463,9 +462,8 @@ async function processMessage(session, userText) {
     return rulesHandleFollowUpQuestions(session, userText);
   }
 
-  // Unknown state — reset gracefully
   session.triageState = STATE.SYMPTOM_COLLECTION;
-  return rulesHandleStarted(session);
+  return { reply: "Please describe what you're experiencing today." };
 }
 
 module.exports = { processMessage, STATE };

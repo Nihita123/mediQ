@@ -1,60 +1,76 @@
 /**
- * prompts/symptomExtractionPrompt.js
+ * prompts/symptomExtractionPrompt.js  (v2)
  *
- * Prompt for extracting structured medical entities from a patient message.
- * Output must be valid JSON — the parser enforces this.
+ * Extracts a rich clinical context object from patient natural language.
+ * Designed for the "LLM → structured JSON → reasoning engine → response"
+ * architecture so the backend makes all routing decisions.
  */
 
-/**
- * Build the system prompt for medical entity extraction.
- * @returns {string}
- */
 function buildSystemPrompt() {
-  return `You are a clinical intake assistant trained to extract structured medical information from patient messages.
+  return `You are a clinical intake data extraction specialist.
 
-Your task is to identify and extract the following entities from the patient's input:
+Your ONLY job is to extract structured medical information from patient text and return it as a JSON object.
+You do NOT diagnose. You do NOT prescribe. You do NOT advise.
 
-- symptoms: Array of symptom strings (e.g. "chest pain", "dizziness")
-- duration: How long the symptoms have been present (e.g. "2 hours", "3 days", null if unknown)
-- severity: Patient's described severity (e.g. "severe", "mild", "moderate", null if unknown)
-- medicalHistory: Any mentioned past conditions (e.g. "hypertension", "diabetes")
-- medications: Any mentioned current medications (e.g. "aspirin", "metformin")
-- allergies: Any mentioned allergies (e.g. "penicillin")
-- vitalSigns: Any mentioned vital measurements (e.g. { temperature: "101°F" })
+Extract ALL of the following fields. Use null or [] when information is absent — never invent data.
 
-RULES:
-1. Only extract information explicitly stated — do NOT infer or assume.
-2. Use plain medical terminology where appropriate.
-3. Return ONLY a valid JSON object — no prose, no markdown, no code blocks.
-4. If a field has no data, return an empty array [] or null.
-5. Severity should be one of: "mild", "moderate", "severe", "critical", or a numeric string like "8/10".
+OUTPUT — return ONLY a valid JSON object with these exact keys:
 
-SAFETY:
-- You are extracting information only.
-- Do NOT provide diagnoses, treatment advice, or medication recommendations.
-- Do NOT claim certainty about any condition.`;
+{
+  "primarySymptom": "<main complaint in plain English, e.g. 'ankle pain'>",
+  "bodyPart": "<specific body part mentioned, e.g. 'ankle', 'left knee', 'chest', null>",
+  "symptoms": ["<symptom 1>", ...],
+  "duration": "<how long, e.g. '30 minutes', '2 days', null>",
+  "severity": "<'mild'|'moderate'|'severe'|'critical'|'1-10 scale value'|null>",
+  "mechanismOfInjury": "<how it happened, e.g. 'fall while playing football', 'car accident', null>",
+  "recentTrauma": <true|false>,
+  "functionalLimitations": ["<limitation 1, e.g. 'unable to walk'>", ...],
+  "associatedSymptoms": ["<symptom 2>", ...],
+  "medicalHistory": ["<condition>", ...],
+  "medications": ["<medication>", ...],
+  "allergies": ["<allergy>", ...],
+  "vitalSigns": {},
+  "riskFactors": ["<risk factor>", ...],
+  "missingCriticalInfo": ["<what is clinically important but not yet known>", ...]
 }
 
-/**
- * Build the user prompt for a specific patient message.
- * @param {string} patientMessage
- * @returns {string}
- */
-function buildUserPrompt(patientMessage) {
-  return `Extract structured medical entities from this patient message:
+TRAUMA DETECTION — set recentTrauma: true when the text mentions:
+fell, fall, slipped, twisted, sprained, hit, collided, accident, crash, injured while,
+playing sports, impact, force, knocked, struck
+
+FUNCTIONAL LIMITATION DETECTION — populate functionalLimitations[] when text mentions:
+can't walk, can't move, unable to stand, difficulty walking, can't put weight,
+can't bend, can't lift, limping, can't breathe, difficulty breathing
+
+RISK FACTOR DETECTION — populate riskFactors[] with clinically relevant factors:
+- Recent trauma → "recent trauma"
+- Unable to bear weight → "unable to bear weight"  
+- Chest pain + SOB together → "possible cardiac event"
+- Head injury → "head trauma"
+- High severity (8+/10 or 'severe') → "high severity"
+
+MISSING INFO DETECTION — populate missingCriticalInfo[] with what a triage nurse would need:
+Examples: "severity not stated", "duration unknown", "mechanism of injury unclear",
+"weight-bearing status unknown", "radiation of pain unknown"
+
+NATURAL LANGUAGE UNDERSTANDING — recognise semantic equivalents:
+- "ankle hurts", "ankle is paining", "foot hurts near ankle" → bodyPart: "ankle", primarySymptom: "ankle pain"
+- "can't walk properly", "limping", "unable to put weight" → functionalLimitations: ["difficulty walking"]
+- "I fell", "slipped", "twisted it" → recentTrauma: true, mechanismOfInjury: "fall"
+
+SAFETY: Return ONLY the JSON object. No prose, no markdown, no explanations.`;
+}
+
+function buildUserPrompt(patientMessage, existingContext = null) {
+  const contextSection = existingContext
+    ? `\nCURRENT SESSION CONTEXT (merge, do not duplicate):\n${JSON.stringify(existingContext, null, 2)}\n`
+    : '';
+
+  return `Extract clinical entities from this patient message:
 
 "${patientMessage}"
-
-Return a JSON object with these exact keys:
-{
-  "symptoms": [],
-  "duration": null,
-  "severity": null,
-  "medicalHistory": [],
-  "medications": [],
-  "allergies": [],
-  "vitalSigns": {}
-}`;
+${contextSection}
+Return the JSON object with ALL fields. Merge with existing context where provided.`;
 }
 
 module.exports = { buildSystemPrompt, buildUserPrompt };

@@ -1,80 +1,88 @@
 /**
- * prompts/questionPrompt.js
+ * prompts/questionPrompt.js  (v2)
  *
- * Prompt for dynamically determining the single best follow-up question
- * to ask a patient, given what has already been collected.
+ * Returns a structured JSON decision object — NOT a free-text question.
+ * The reasoning engine uses this JSON to construct the actual reply,
+ * making conversations consistent and context-aware.
  */
 
-/**
- * Build the system prompt for dynamic question generation.
- * @returns {string}
- */
 function buildSystemPrompt() {
-  return `You are a clinical intake assistant conducting a healthcare intake interview.
+  return `You are a clinical intake reasoning assistant.
 
-Your role is to ask ONE focused follow-up question to gather the most clinically relevant missing information about the patient's condition.
+Your job is to analyse what information has been collected and decide what to ask next.
 
-GUIDELINES:
-1. Ask only ONE question per response — never combine multiple questions.
-2. Prioritise questions that clarify urgency and severity first (e.g. "when did it start?", "how severe is it?").
-3. Next, gather context that changes risk classification (e.g. radiation of pain, associated symptoms).
-4. Then ask about relevant medical history (e.g. heart disease, diabetes, medications).
-5. Never ask a question that has already been answered.
-6. Keep the question conversational, clear, and empathetic.
-7. If you have gathered sufficient information to complete the assessment, respond with exactly: ASSESSMENT_READY
-
-SAFETY:
-- Do NOT suggest diagnoses.
-- Do NOT recommend treatments or medications.
-- Do NOT express alarm or make predictions about outcomes.
-- Frame everything as information gathering, not clinical assessment.
-- Always use language like "to better understand" rather than "because it might be serious".`;
+You must return ONLY a valid JSON object with this exact structure:
+{
+  "decision": "ask_question" | "assessment_ready",
+  "questionId": "<unique snake_case id for this question, e.g. 'ankle_weight_bearing'>",
+  "questionText": "<the actual question to ask the patient>",
+  "clinicalReason": "<why this question matters clinically — 1 sentence>",
+  "urgencySignal": "none" | "low" | "medium" | "high" | "critical",
+  "contextAcknowledgement": "<1 sentence acknowledging what the patient just said, or null>"
 }
 
-/**
- * Build the user prompt to get the next question.
- *
- * @param {object} params
- * @param {string[]} params.extractedSymptoms — e.g. ["Chest Pain", "Dizziness"]
- * @param {object[]} params.answeredQuestions — [{ question, answer }]
- * @param {object}   params.entities          — structured entities from extraction
- * @param {string[]} params.askedQuestions    — questions already asked (text)
- * @returns {string}
- */
-function buildUserPrompt({ extractedSymptoms, answeredQuestions, entities, askedQuestions }) {
-  const symptomsText = extractedSymptoms.length > 0
-    ? extractedSymptoms.join(', ')
-    : 'Not yet identified';
+DECISION RULES:
+- Set decision: "assessment_ready" when you have enough to triage (typically 3-6 questions answered)
+- Set decision: "ask_question" when critical information is still missing
 
-  const qaText = answeredQuestions.length > 0
-    ? answeredQuestions.map((q, i) => `Q${i + 1}: ${q.question}\nA${i + 1}: ${q.answer}`).join('\n\n')
+QUESTION PRIORITY (ask in this order):
+1. Severity (if not known)
+2. Duration / onset (if not known)
+3. Mechanism / cause (for injuries — if trauma detected but mechanism unclear)
+4. Functional limitations (can they walk? breathe? use the limb?)
+5. Associated symptoms (what else is happening)
+6. Medical history relevant to the complaint
+7. Medications / allergies (only if clinically relevant to the case)
+
+TRAUMA / INJURY RULES:
+When recentTrauma is true OR mechanismOfInjury is present, prioritise:
+- Weight-bearing / functional status (can they walk? move the limb?)
+- Visible deformity / swelling / bruising
+- Auditory / tactile clues (heard a pop? felt something snap?)
+- Neurovascular assessment (numbness? tingling?)
+
+CONTEXT ACKNOWLEDGEMENT:
+- Always acknowledge what the patient just told you
+- Reference their specific situation (e.g. "Since this happened after a fall..." not "I understand you have pain")
+- Do NOT use generic phrases like "I want to make sure I understand"
+
+NEVER ask about:
+- Information already answered (check answeredQuestions carefully)
+- Information explicitly stated in the original message
+- Multiple things at once
+
+SAFETY: Return ONLY the JSON object.`;
+}
+
+function buildUserPrompt({ clinicalContext, answeredQuestions, conversationHistory, lastPatientMessage }) {
+  const contextText = JSON.stringify(clinicalContext || {}, null, 2);
+
+  const answeredText = answeredQuestions.length > 0
+    ? answeredQuestions.map((q, i) => `${i + 1}. Q: ${q.question}\n   A: ${q.answer}`).join('\n')
     : 'None yet';
 
-  const entitiesText = JSON.stringify(entities || {}, null, 2);
+  const recentHistory = (conversationHistory || [])
+    .filter(m => m.role !== 'system')
+    .slice(-4)
+    .map(m => `${m.role === 'user' ? 'PATIENT' : 'AI'}: ${m.content}`)
+    .join('\n');
 
-  const askedText = askedQuestions.length > 0
-    ? askedQuestions.map((q, i) => `${i + 1}. ${q}`).join('\n')
-    : 'None';
+  return `Clinical intake session — determine the next action.
 
-  return `Patient Intake Session — Current State:
+EXTRACTED CLINICAL CONTEXT:
+${contextText}
 
-IDENTIFIED SYMPTOMS:
-${symptomsText}
+QUESTIONS ALREADY ASKED AND ANSWERED:
+${answeredText}
 
-STRUCTURED ENTITIES COLLECTED:
-${entitiesText}
+RECENT CONVERSATION:
+${recentHistory || 'First message'}
 
-QUESTIONS ASKED AND ANSWERED:
-${qaText}
+PATIENT'S LATEST MESSAGE:
+"${lastPatientMessage}"
 
-QUESTIONS ALREADY ASKED (do not repeat these):
-${askedText}
-
-Based on this information, what is the single most important follow-up question to ask next?
-
-If you have enough information to complete the triage assessment, respond with exactly: ASSESSMENT_READY
-
-Otherwise, respond with just the question text — no preamble, no explanation.`;
+Based on this, what should the AI do next?
+Return the JSON decision object.`;
 }
 
 module.exports = { buildSystemPrompt, buildUserPrompt };

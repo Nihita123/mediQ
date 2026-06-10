@@ -133,6 +133,12 @@ const RISK_RULES = [
 
   // ── Low ───────────────────────────────────────────────────────────────────
   {
+    OR: ['nausea'],
+    riskLevel: 'low',
+    department: 'General Practice',
+    reason: 'Nausea without associated urgent symptoms is suitable for routine evaluation.',
+  },
+  {
     OR: ['cough'],
     riskLevel: 'low',
     department: 'General Practice',

@@ -167,6 +167,21 @@ const sessionSchema = new mongoose.Schema(
       default: null,
     },
 
+    // ── Clinical Context (v3) ────────────────────────────────────────────────
+    // Rich structured entities extracted from the FULL conversation, not just
+    // the first message.  Updated after every patient turn.
+    clinicalContext: {
+      type: mongoose.Schema.Types.Mixed,
+      default: null,
+    },
+
+    // Current interim risk level — updated after every turn (not just at end)
+    interimRiskLevel: {
+      type: String,
+      enum: ['low', 'medium', 'high', 'critical', 'unknown'],
+      default: 'unknown',
+    },
+
     // AI risk classification
     riskLevel: {
       type: String,

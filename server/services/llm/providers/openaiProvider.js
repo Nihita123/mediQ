@@ -8,21 +8,23 @@
 const OpenAI = require('openai');
 
 let _client = null;
+let _clientKey = null; // track which key the client was built with
 
 /**
  * Lazily initialise the OpenAI client.
+ * Re-creates the client if the key has changed.
  * @returns {OpenAI}
  */
 function getClient() {
-  if (!_client) {
-    if (!process.env.OPENAI_API_KEY) {
-      throw new Error('OPENAI_API_KEY is not set in environment variables');
-    }
-    _client = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
-      baseURL: process.env.OPENAI_BASE_URL || undefined, // Allows custom base URL
-    });
-  }
+  const key = process.env.OPENAI_API_KEY;
+  if (!key) throw new Error('OPENAI_API_KEY is not set');
+  if (_client && _clientKey === key) return _client;
+
+  _client = new OpenAI({
+    apiKey:  key,
+    baseURL: process.env.OPENAI_BASE_URL || undefined,
+  });
+  _clientKey = key;
   return _client;
 }
 
@@ -56,12 +58,27 @@ async function chat({ messages, model, temperature = 0.3, maxTokens = 1500 }) {
 
 /**
  * Check if the OpenAI provider is configured with a real key.
- * Rejects the obvious placeholder value 'sk-...'.
+ * Rejects placeholder/template values that would fail with a 401.
+ * A real OpenAI key is 'sk-' followed by at least 20 alphanumeric chars
+ * and contains no spaces, hyphens-after-prefix, or template words.
  * @returns {boolean}
  */
 function isAvailable() {
   const key = process.env.OPENAI_API_KEY;
-  return Boolean(key) && key !== 'sk-...' && key.startsWith('sk-');
+  if (!key) return false;
+  if (!key.startsWith('sk-')) return false;
+
+  // Reject obvious placeholders: sk-..., sk-your-..., sk-proj-...-here, etc.
+  const PLACEHOLDER_PATTERNS = [
+    /^sk-\.+$/,                  // sk-...
+    /your/i,                     // sk-your-real-key-here
+    /example/i,                  // sk-example
+    /replace/i,                  // sk-replace-me
+    /here$/i,                    // ends with "here"
+    /^sk-.{1,10}$/,              // too short to be real (real keys are 50+ chars)
+  ];
+
+  return !PLACEHOLDER_PATTERNS.some((p) => p.test(key));
 }
 
 module.exports = { chat, isAvailable, name: 'openai' };

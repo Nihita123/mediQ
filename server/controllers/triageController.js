@@ -1,11 +1,9 @@
 /**
  * controllers/triageController.js — Triage Conversation Controller
  *
- * Handles the triage chat flow:
- *   POST /api/triage/start     — Create session, send greeting
- *   POST /api/triage/message   — Process patient message, return AI reply
- *   GET  /api/triage/:sessionId — Retrieve session with full state
- *   GET  /api/triage/history   — Paginated session list for the user
+ * Uses findByIdAndUpdate with $set for all session state updates.
+ * This bypasses Mongoose dirty-tracking entirely and guarantees
+ * every field written by the triage engine is persisted to MongoDB.
  */
 
 const Session = require('../models/sessionModel');
@@ -22,31 +20,31 @@ const { processMessage, STATE } = require('../services/triageEngine');
 const startTriage = asyncHandler(async (req, res) => {
   // Create session in STARTED state
   const session = await Session.create({
-    userId: req.user._id,
-    triageState: STATE.STARTED,
-    status: 'active',
+    userId:       req.user._id,
+    triageState:  STATE.STARTED,
+    status:       'active',
   });
 
-  // Process the implicit first "turn" — gets the greeting message.
-  // processMessage is async (LLM path) but the STARTED state always
-  // returns synchronously without calling the LLM, so this is safe.
+  // Get the greeting — STARTED handler is synchronous, never calls LLM
   const { reply } = await processMessage(session, '');
 
-  // Persist the greeting as the first assistant message
-  session.messages.push({
-    role: 'assistant',
-    content: reply,
-    timestamp: new Date(),
+  // Persist using $set so nothing is silently dropped
+  await Session.findByIdAndUpdate(session._id, {
+    $set: {
+      triageState: session.triageState,
+      aiEngine:    session.aiEngine,
+    },
+    $push: {
+      messages: { role: 'assistant', content: reply, timestamp: new Date() },
+    },
   });
 
-  await session.save();
-
   res.status(201).json({
-    message: 'Triage session started',
-    sessionId: session._id,
-    triageState: session.triageState,
-    aiReply: reply,
-    extractedSymptoms: session.extractedSymptoms,
+    message:           'Triage session started',
+    sessionId:         session._id,
+    triageState:       session.triageState,
+    aiReply:           reply,
+    extractedSymptoms: [],
   });
 });
 
@@ -67,6 +65,7 @@ const sendMessage = asyncHandler(async (req, res) => {
     throw new Error('sessionId and message are required');
   }
 
+  // Load the full session from DB
   const session = await Session.findById(sessionId);
 
   if (!session) {
@@ -74,7 +73,6 @@ const sendMessage = asyncHandler(async (req, res) => {
     throw new Error('Session not found');
   }
 
-  // Ownership check
   if (session.userId.toString() !== req.user._id.toString()) {
     res.status(403);
     throw new Error('Not authorized to access this session');
@@ -87,37 +85,59 @@ const sendMessage = asyncHandler(async (req, res) => {
 
   const trimmedMessage = message.trim();
 
-  // Append user message to history
-  session.messages.push({
-    role: 'user',
-    content: trimmedMessage,
-    timestamp: new Date(),
-  });
-
-  // Run through the state machine (async — may call LLM)
+  // Run the triage engine — mutates session fields in memory
   const { reply } = await processMessage(session, trimmedMessage);
 
-  // Append AI reply to history
-  session.messages.push({
-    role: 'assistant',
-    content: reply,
-    timestamp: new Date(),
-  });
-
-  await session.save();
+  // ── Persist EVERYTHING via $set ────────────────────────────────────────────
+  // Using findByIdAndUpdate with $set guarantees every field is written to
+  // MongoDB regardless of Mongoose dirty-tracking behaviour.
+  // $push appends both the user message and AI reply atomically.
+  await Session.findByIdAndUpdate(
+    sessionId,
+    {
+      $set: {
+        triageState:           session.triageState,
+        extractedSymptoms:     session.extractedSymptoms,
+        symptomKeys:           session.symptomKeys           || [],
+        answeredQuestions:     session.answeredQuestions,
+        lastAskedQuestionId:   session.lastAskedQuestionId   ?? null,
+        lastAskedQuestionText: session.lastAskedQuestionText ?? null,
+        clinicalContext:       session.clinicalContext        ?? null,
+        interimRiskLevel:      session.interimRiskLevel       ?? 'unknown',
+        medicalEntities:       session.medicalEntities       || {},
+        triageResult:          session.triageResult          || {},
+        riskLevel:             session.riskLevel,
+        department:            session.department            ?? null,
+        summary:               session.summary               ?? null,
+        structuredSummary:     session.structuredSummary     ?? null,
+        status:                session.status,
+        aiEngine:              session.aiEngine,
+      },
+      $push: {
+        messages: {
+          $each: [
+            { role: 'user',      content: trimmedMessage, timestamp: new Date() },
+            { role: 'assistant', content: reply,          timestamp: new Date() },
+          ],
+        },
+      },
+    },
+    { new: false } // we don't need the updated doc back — we already have all data
+  );
 
   res.json({
-    aiReply:            reply,
-    triageState:        session.triageState,
-    extractedSymptoms:  session.extractedSymptoms,
-    answeredQuestions:  session.answeredQuestions,
-    medicalEntities:    session.medicalEntities    || null,
-    triageResult:       session.triageResult       || null,
-    riskLevel:          session.riskLevel,
-    department:         session.department,
-    status:             session.status,
-    aiEngine:           session.aiEngine,
-    sessionComplete:    session.triageState === STATE.SUMMARY_READY,
+    aiReply:           reply,
+    triageState:       session.triageState,
+    extractedSymptoms: session.extractedSymptoms,
+    answeredQuestions: session.answeredQuestions,
+    clinicalContext:   session.clinicalContext   || null,
+    medicalEntities:   session.medicalEntities   || null,
+    triageResult:      session.triageResult      || null,
+    riskLevel:         session.interimRiskLevel  || session.riskLevel,
+    department:        session.department,
+    status:            session.status,
+    aiEngine:          session.aiEngine,
+    sessionComplete:   session.triageState === STATE.SUMMARY_READY,
   });
 });
 
@@ -129,17 +149,14 @@ const sendMessage = asyncHandler(async (req, res) => {
  * @access  Private — owner or doctor/admin
  */
 const getTriageSession = asyncHandler(async (req, res) => {
-  const session = await Session.findById(req.params.sessionId).populate(
-    'userId',
-    'name email'
-  );
+  const session = await Session.findById(req.params.sessionId).populate('userId', 'name email');
 
   if (!session) {
     res.status(404);
     throw new Error('Session not found');
   }
 
-  const isOwner = session.userId._id.toString() === req.user._id.toString();
+  const isOwner      = session.userId._id.toString() === req.user._id.toString();
   const isPrivileged = ['doctor', 'admin'].includes(req.user.role);
 
   if (!isOwner && !isPrivileged) {
@@ -167,18 +184,13 @@ const getTriageHistory = asyncHandler(async (req, res) => {
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
-      .select('-messages -answeredQuestions'), // Lean list view
+      .select('-messages -answeredQuestions'),
     Session.countDocuments({ userId: req.user._id }),
   ]);
 
   res.json({
     sessions,
-    pagination: {
-      total,
-      page,
-      limit,
-      pages: Math.ceil(total / limit),
-    },
+    pagination: { total, page, limit, pages: Math.ceil(total / limit) },
   });
 });
 
