@@ -1,0 +1,131 @@
+id,source,category,expected_risk,predicted_risk,risk_correct,dept_score,sym_f1,sym_precision,sym_recall,entity_acc,kw_coverage,questions_asked,repeated_questions,context_retained,session_completed,latency_ms
+PD_001,provided_dataset,"Respiratory / Viral",medium,medium,1,1.000,0.000,0.000,0.000,1.000,0.333,5,0,1,1,7
+PD_002,provided_dataset,"Respiratory / Viral",medium,medium,1,1.000,1.000,1.000,1.000,0.000,0.600,7,0,0,0,1
+PD_003,provided_dataset,"Respiratory / Pneumonia",high,low,0,0.667,0.667,1.000,0.500,0.250,0.000,4,0,1,1,0
+PD_004,provided_dataset,"Respiratory / Viral",medium,unknown,0,0.500,0.000,0.000,0.000,0.000,0.000,0,0,1,0,1
+PD_005,provided_dataset,"Respiratory / Viral",low,high,0,0.000,0.500,1.000,0.333,0.000,0.333,6,0,1,1,1
+PD_006,provided_dataset,"Respiratory / Viral",low,low,1,1.000,1.000,1.000,1.000,0.000,0.333,4,0,1,1,0
+PD_007,provided_dataset,"Respiratory / Viral",medium,low,0,0.667,0.667,1.000,0.500,0.000,0.200,4,0,1,1,1
+PD_008,provided_dataset,"Respiratory / Viral",low,unknown,0,1.000,0.000,0.000,0.000,0.000,0.000,0,0,1,0,0
+PD_009,provided_dataset,"Respiratory / Asthma",high,high,1,1.000,0.667,1.000,0.500,0.000,0.250,4,0,1,1,1
+PD_010,provided_dataset,"Respiratory / Pneumonia",high,low,0,0.000,0.500,1.000,0.333,0.000,0.000,4,0,1,1,2
+PD_011,provided_dataset,"Neurological / Multi-symptom",high,high,1,0.333,0.889,0.800,1.000,0.333,0.000,7,0,1,0,2
+PD_012,provided_dataset,"Respiratory / Pneumonia",critical,critical,1,0.333,0.857,1.000,0.750,0.000,0.200,7,0,1,0,0
+PD_013,provided_dataset,"Respiratory / Asthma",low,unknown,0,0.667,0.000,0.000,0.000,0.000,0.000,0,0,1,0,0
+PD_014,provided_dataset,"Chronic / Diabetes",medium,unknown,0,0.667,0.000,0.000,0.000,0.000,0.000,0,0,1,0,0
+PD_015,provided_dataset,"Musculoskeletal / Autoimmune",low,unknown,0,0.667,0.000,0.000,0.000,0.000,0.000,0,0,1,0,1
+PD_016,provided_dataset,"Respiratory / Pneumonia",high,high,1,0.000,1.000,1.000,1.000,0.250,0.250,7,0,1,0,0
+PD_017,provided_dataset,"Respiratory / Pneumonia",high,unknown,0,0.000,0.000,0.000,0.000,0.000,0.000,0,0,1,0,1
+PD_018,provided_dataset,"Respiratory / Viral",medium,medium,1,0.667,0.667,1.000,0.500,0.000,0.500,5,0,1,1,0
+PD_019,provided_dataset,"Respiratory / Viral",high,high,1,1.000,0.750,1.000,0.600,0.000,0.400,7,0,1,0,1
+PD_020,provided_dataset,"Musculoskeletal / Joint Pain",low,low,1,1.000,1.000,1.000,1.000,0.000,0.000,3,0,1,1,0
+PD_021,provided_dataset,"Respiratory / Viral",high,high,1,1.000,0.500,1.000,0.333,0.000,0.000,4,0,1,1,1
+PD_022,provided_dataset,"Respiratory / Pneumonia",critical,unknown,0,0.000,0.000,0.000,0.000,0.000,0.000,0,0,1,0,0
+PD_023,provided_dataset,"Neurological",low,medium,0,1.000,0.500,1.000,0.333,0.000,0.333,4,0,1,1,1
+PD_024,provided_dataset,"Respiratory / Multi-symptom",high,high,1,0.500,0.889,1.000,0.800,0.000,0.400,7,0,1,0,1
+PD_025,provided_dataset,"Respiratory / Viral",medium,medium,1,1.000,0.500,1.000,0.333,0.000,1.000,5,0,1,1,1
+PD_026,provided_dataset,"Cardiovascular / Respiratory",high,low,0,0.000,0.800,1.000,0.667,0.250,0.200,4,0,1,1,0
+PD_027,provided_dataset,"Respiratory / Viral",medium,low,0,0.500,0.500,1.000,0.333,0.000,0.000,4,0,1,1,0
+PD_028,provided_dataset,"Dermatology",low,unknown,0,0.000,0.000,0.000,0.000,0.000,0.000,0,0,1,0,1
+PD_029,provided_dataset,"Respiratory / Pneumonia",critical,unknown,0,0.000,0.000,0.000,0.000,0.250,0.000,0,0,1,0,1
+PD_030,provided_dataset,"Respiratory / Viral",medium,medium,1,1.000,0.667,0.667,0.667,0.000,0.500,7,0,1,0,1
+PD_031,provided_dataset,"ENT / Respiratory",low,unknown,0,1.000,0.000,0.000,0.000,0.000,0.000,0,0,1,0,0
+PD_032,provided_dataset,"Musculoskeletal / Skin",medium,unknown,0,0.667,0.000,0.000,0.000,0.000,0.000,0,0,1,0,0
+PD_033,provided_dataset,"Respiratory / COPD",high,unknown,0,0.667,0.000,0.000,0.000,0.000,0.000,0,0,1,0,0
+PD_034,provided_dataset,"Respiratory / Pneumonia",medium,unknown,0,0.667,0.000,0.000,0.000,0.333,0.000,0,0,1,0,0
+PD_035,provided_dataset,"Respiratory / Viral",medium,unknown,0,1.000,0.000,0.000,0.000,0.000,0.000,0,0,1,0,0
+TE_001,hand_curated,"Cardiology / Emergency",critical,critical,1,1.000,1.000,1.000,1.000,0.333,0.400,6,0,1,1,1
+TE_002,hand_curated,"Allergy / Emergency",critical,low,0,0.000,0.500,1.000,0.333,0.200,0.000,4,0,1,1,0
+TE_003,hand_curated,"Orthopaedics / Sports Injury",high,low,0,0.000,0.500,0.500,0.500,0.200,0.200,7,0,1,0,0
+TE_004,hand_curated,"Neurology / Emergency",critical,critical,1,1.000,0.800,0.667,1.000,0.200,0.200,7,0,1,0,0
+TE_005,hand_curated,"Gastrointestinal / Emergency",critical,medium,0,0.333,1.000,1.000,1.000,0.250,0.200,7,0,0,0,1
+TE_006,hand_curated,"Neurology / Emergency",critical,unknown,0,0.000,0.000,0.000,0.000,0.250,0.000,0,0,1,0,0
+TE_007,hand_curated,"Respiratory / Emergency",critical,unknown,0,0.000,0.000,0.000,0.000,0.000,0.000,0,0,1,0,1
+TE_008,hand_curated,"Neurology / Infectious Disease",critical,high,0,0.500,1.000,1.000,1.000,0.333,0.200,7,0,1,0,0
+TE_009,hand_curated,"Obstetrics / Emergency",critical,medium,0,0.000,1.000,1.000,1.000,0.250,0.200,7,0,1,0,1
+TE_010,hand_curated,"Cardiology / Respiratory",critical,critical,1,1.000,1.000,1.000,1.000,0.000,0.600,7,0,1,0,0
+TE_011,hand_curated,"Orthopaedics / Sports Injury",high,medium,0,1.000,0.000,0.000,0.000,0.000,0.000,7,0,1,0,1
+TE_012,hand_curated,"Trauma / Emergency",critical,medium,0,0.333,0.000,0.000,0.000,0.200,0.200,7,0,1,0,1
+TE_013,hand_curated,"Gastrointestinal / High Risk",critical,low,0,0.000,0.667,1.000,0.500,0.000,0.200,3,0,1,1,0
+TE_014,hand_curated,"Orthopaedics / Trauma",critical,medium,0,0.500,0.000,0.000,0.000,0.200,0.000,7,0,1,0,0
+TE_015,hand_curated,"Cardiology / High Risk",critical,high,0,0.667,1.000,1.000,1.000,0.250,0.000,7,0,1,0,1
+TE_016,hand_curated,"Orthopaedics / Sports Injury",high,low,0,0.000,0.000,0.000,0.000,0.000,0.200,3,0,1,1,0
+TE_017,hand_curated,"Respiratory / Pneumonia",high,high,1,0.667,1.000,1.000,1.000,0.000,0.000,7,0,1,0,1
+TE_018,hand_curated,"Neurology / High Risk",critical,high,0,1.000,1.000,1.000,1.000,0.333,0.000,6,0,1,1,0
+TE_019,hand_curated,"Paediatrics / Respiratory",critical,medium,0,0.000,0.667,1.000,0.500,0.000,0.000,5,0,1,1,1
+TE_020,hand_curated,"Orthopaedics / Trauma",high,high,1,0.500,0.000,0.000,0.000,0.200,0.000,7,0,1,0,0
+TE_021,hand_curated,"Gastroenterology / High Risk",high,medium,0,0.333,1.000,1.000,1.000,0.333,0.200,7,0,1,0,0
+TE_022,hand_curated,"Cardiology / High Risk",critical,critical,1,1.000,1.000,1.000,1.000,0.000,0.000,6,0,1,1,1
+TE_023,hand_curated,"Trauma / Multi-system",critical,low,0,0.000,0.800,0.667,1.000,0.000,0.000,7,0,1,0,0
+TE_024,hand_curated,"Respiratory / Asthma",critical,high,0,0.500,1.000,1.000,1.000,0.000,0.000,4,0,1,1,0
+TE_025,hand_curated,"Orthopaedics / Elderly",high,high,1,0.500,0.000,0.000,0.000,0.000,0.000,7,0,1,0,0
+TE_026,hand_curated,"Endocrinology / Emergency",critical,critical,1,0.500,0.500,1.000,0.333,0.000,0.167,3,0,1,1,0
+TE_027,hand_curated,"Ophthalmology / Emergency",critical,low,0,0.000,1.000,1.000,1.000,0.250,0.000,3,0,1,1,0
+TE_028,hand_curated,"Infectious Disease / High Risk",critical,critical,1,0.333,0.667,0.667,0.667,0.333,0.600,7,0,0,0,1
+TE_029,hand_curated,"Orthopaedics / Sports",high,medium,0,0.250,0.800,0.667,1.000,0.250,0.400,7,0,1,0,0
+TE_030,hand_curated,"Cardiovascular / High Risk",critical,unknown,0,0.000,0.000,0.000,0.000,0.000,0.000,0,0,1,0,2
+TE_031,hand_curated,"Respiratory / Allergic",critical,low,0,0.000,0.667,1.000,0.500,0.200,0.000,4,0,1,1,0
+TE_032,hand_curated,"Multi-symptom / Ambiguous",medium,high,0,0.000,0.667,1.000,0.500,0.500,0.500,7,0,1,0,1
+TE_033,hand_curated,"Urology / High Risk",high,low,0,0.000,1.000,1.000,1.000,0.000,0.200,7,0,1,0,0
+TE_034,hand_curated,"Paediatrics / Head Trauma",critical,medium,0,0.000,0.500,0.500,0.500,0.000,0.200,7,0,1,0,1
+TE_035,hand_curated,"Respiratory / Chest Trauma",high,medium,0,0.750,0.000,0.000,0.000,0.000,0.000,7,0,1,0,0
+PAR_001,llm_paraphrase,"Orthopaedics / Sports Injury",high,unknown,0,0.000,0.000,0.000,0.000,0.000,0.000,0,0,1,0,1
+PAR_002,llm_paraphrase,"Orthopaedics / Sports Injury",high,unknown,0,0.000,0.000,0.000,0.000,0.000,0.000,0,0,1,0,0
+PAR_003,llm_paraphrase,"Orthopaedics / Sports Injury",high,medium,0,1.000,0.000,0.000,0.000,0.200,0.000,7,0,1,0,1
+PAR_004,llm_paraphrase,"Orthopaedics / Sports Injury",high,low,0,0.000,0.667,0.500,1.000,0.200,0.250,7,0,1,0,0
+PAR_005,llm_paraphrase,"Orthopaedics / Sports Injury",high,low,0,0.000,0.500,0.500,0.500,0.200,0.333,7,0,1,0,1
+PAR_006,llm_paraphrase,"Cardiology / Emergency",critical,unknown,0,0.000,0.000,0.000,0.000,0.333,0.000,0,0,1,0,0
+PAR_007,llm_paraphrase,"Cardiology / Emergency",critical,critical,1,1.000,1.000,1.000,1.000,0.000,0.333,6,0,1,1,1
+PAR_008,llm_paraphrase,"Cardiology / Emergency",critical,unknown,0,0.000,0.000,0.000,0.000,0.000,0.000,0,0,1,0,0
+PAR_009,llm_paraphrase,"Neurology / Head Trauma",critical,critical,1,1.000,0.800,0.667,1.000,0.000,0.500,7,0,1,0,1
+PAR_010,llm_paraphrase,"Neurology / Head Trauma",critical,medium,0,0.500,0.500,0.500,0.500,0.200,0.250,7,0,1,0,0
+PAR_011,llm_paraphrase,"Neurology / Infectious Disease",critical,high,0,0.500,0.800,1.000,0.667,0.000,0.500,7,0,1,0,0
+PAR_012,llm_paraphrase,"Neurology / Infectious Disease",critical,high,0,0.500,0.800,1.000,0.667,0.000,0.000,7,0,1,0,1
+PAR_013,llm_paraphrase,"Cardiology / Respiratory",critical,critical,1,1.000,1.000,1.000,1.000,0.000,0.500,7,0,1,0,0
+PAR_014,llm_paraphrase,"Cardiology / Respiratory",critical,high,0,0.000,0.800,1.000,0.667,0.000,0.333,7,0,1,0,1
+PAR_015,llm_paraphrase,"Gastrointestinal / Emergency",critical,medium,0,0.333,1.000,1.000,1.000,0.000,0.333,5,0,1,1,0
+PAR_016,llm_paraphrase,"Neurology / Emergency",critical,unknown,0,0.000,0.000,0.000,0.000,0.000,0.000,0,0,1,0,1
+PAR_017,llm_paraphrase,"Neurology / Emergency",critical,unknown,0,0.000,0.000,0.000,0.000,0.000,0.000,0,0,1,0,0
+PAR_018,llm_paraphrase,"Orthopaedics / Sports",high,unknown,0,0.000,0.000,0.000,0.000,0.000,0.000,0,0,1,0,0
+PAR_019,llm_paraphrase,"Orthopaedics / Sports",high,unknown,0,0.000,0.000,0.000,0.000,0.200,0.000,0,0,1,0,1
+PAR_020,llm_paraphrase,"Respiratory / Multi-symptom",high,unknown,0,0.000,0.000,0.000,0.000,0.000,0.000,0,0,1,0,2
+PAR_021,llm_paraphrase,"Respiratory / Multi-symptom",high,unknown,0,0.000,0.000,0.000,0.000,0.000,0.000,0,0,1,0,0
+PAR_022,llm_paraphrase,"Respiratory / Pneumonia",high,medium,0,0.667,0.800,1.000,0.667,0.000,0.250,7,0,1,0,1
+PAR_023,llm_paraphrase,"Respiratory / Pneumonia",high,high,1,0.667,1.000,1.000,1.000,0.000,0.400,7,0,1,0,0
+PAR_024,llm_paraphrase,"Respiratory / Asthma",critical,unknown,0,0.000,0.000,0.000,0.000,0.000,0.000,0,0,1,0,1
+PAR_025,llm_paraphrase,"Respiratory / Asthma",critical,unknown,0,0.000,0.000,0.000,0.000,0.000,0.000,0,0,1,0,0
+PAR_026,llm_paraphrase,"Respiratory / Pneumonia",high,low,0,0.667,0.667,1.000,0.500,0.000,0.000,4,0,1,1,0
+PAR_027,llm_paraphrase,"Respiratory / Pneumonia",high,low,0,0.000,0.667,1.000,0.500,0.000,0.250,4,0,1,1,0
+PAR_028,llm_paraphrase,"Gastroenterology / High Risk",high,medium,0,0.333,0.667,1.000,0.500,0.000,0.250,5,0,1,1,0
+PAR_029,llm_paraphrase,"Gastroenterology / High Risk",high,medium,0,0.333,1.000,1.000,1.000,0.000,0.250,7,0,1,0,0
+PAR_030,llm_paraphrase,"Trauma / Emergency",critical,low,0,0.000,0.000,0.000,0.000,0.000,0.000,3,0,1,1,0
+PAR_031,llm_paraphrase,"Trauma / Emergency",critical,medium,0,0.333,0.000,0.000,0.000,0.000,0.000,7,0,1,0,1
+PAR_032,llm_paraphrase,"Respiratory / Asthma",high,high,1,1.000,0.667,1.000,0.500,0.000,0.000,4,0,1,1,0
+PAR_033,llm_paraphrase,"Allergy / Emergency",critical,low,0,0.000,0.667,1.000,0.500,0.000,0.200,4,0,1,1,0
+PAR_034,llm_paraphrase,"Allergy / Emergency",critical,low,0,0.000,0.667,1.000,0.500,0.000,0.000,4,0,1,1,0
+PAR_035,llm_paraphrase,"Endocrinology / Emergency",critical,critical,1,0.500,0.500,1.000,0.333,0.000,0.200,3,0,1,1,1
+PAR_036,llm_paraphrase,"Respiratory / Viral",low,unknown,0,1.000,0.000,0.000,0.000,0.333,0.000,0,0,1,0,0
+PAR_037,llm_paraphrase,"Respiratory / Viral",low,unknown,0,1.000,0.000,0.000,0.000,0.000,0.000,0,0,1,0,0
+PAR_038,llm_paraphrase,"Orthopaedics / Sports Injury",high,low,0,0.000,0.667,1.000,0.500,0.000,0.250,3,0,1,1,0
+PAR_039,llm_paraphrase,"Orthopaedics / Sports Injury",high,low,0,0.000,0.000,0.000,0.000,0.000,0.000,3,0,1,1,0
+PAR_040,llm_paraphrase,"Urology / High Risk",high,low,0,0.000,1.000,1.000,1.000,0.000,0.250,7,0,1,0,0
+PAR_041,llm_paraphrase,"Urology / High Risk",high,low,0,0.000,1.000,1.000,1.000,0.000,0.250,7,0,1,0,1
+PAR_042,llm_paraphrase,"Neurology / Emergency",critical,medium,0,0.500,1.000,1.000,1.000,0.000,0.000,7,0,1,0,1
+PAR_043,llm_paraphrase,"Neurology / Emergency",critical,medium,0,0.500,1.000,1.000,1.000,0.000,0.000,7,0,1,0,0
+PAR_044,llm_paraphrase,"Musculoskeletal / Skin",medium,unknown,0,0.667,0.000,0.000,0.000,0.000,0.000,0,0,1,0,0
+PAR_045,llm_paraphrase,"Gastroenterology / Emergency",critical,medium,0,0.000,0.500,1.000,0.333,0.000,0.000,4,0,1,1,1
+PAR_046,llm_paraphrase,"Cardiovascular / Respiratory",high,low,0,0.000,0.800,1.000,0.667,0.000,0.000,3,0,1,1,0
+PAR_047,llm_paraphrase,"Orthopaedics / Elderly",high,high,1,0.500,0.000,0.000,0.000,0.000,0.000,7,0,1,0,1
+PAR_048,llm_paraphrase,"Respiratory / History",high,low,0,0.667,0.667,1.000,0.500,0.000,0.000,4,0,1,1,0
+PAR_049,llm_paraphrase,"Orthopaedics / Sports Head",high,medium,0,0.333,0.667,1.000,0.500,0.000,0.000,7,0,1,0,5
+PAR_050,llm_paraphrase,"Orthopaedics / Sports Head",high,medium,0,0.333,1.000,1.000,1.000,0.250,0.500,7,0,1,0,1
+PAR_051,llm_paraphrase,"Respiratory / Viral Paeds",medium,medium,1,0.667,0.500,0.500,0.500,0.000,0.000,7,0,1,0,0
+PAR_052,llm_paraphrase,"Cardiology / High Risk",critical,high,0,0.667,0.800,1.000,0.667,0.000,0.000,7,0,1,0,0
+PAR_053,llm_paraphrase,"Respiratory / Viral",low,high,0,0.000,0.667,1.000,0.500,0.000,0.333,6,0,1,1,0
+PAR_054,llm_paraphrase,"Respiratory / Viral",low,high,0,0.000,0.667,1.000,0.500,0.000,0.333,6,0,1,1,0
+PAR_055,llm_paraphrase,"Orthopaedics / Trauma",high,high,1,0.500,0.000,0.000,0.000,0.000,0.000,7,0,1,0,0
+PAR_056,llm_paraphrase,"Cardiology / Emergency",critical,unknown,0,0.000,0.000,0.000,0.000,0.000,0.000,0,0,1,0,0
+PAR_057,llm_paraphrase,"Respiratory / Pneumonia",critical,critical,1,0.333,0.500,1.000,0.333,0.000,0.000,6,0,1,1,2
+PAR_058,llm_paraphrase,"Obstetrics / Emergency",critical,medium,0,0.000,0.667,1.000,0.500,0.000,0.000,4,0,1,1,0
+PAR_059,llm_paraphrase,"Trauma / Emergency",critical,low,0,0.000,0.667,0.500,1.000,0.000,0.000,7,0,1,0,0
+PAR_060,llm_paraphrase,"Respiratory / Chest Trauma",high,medium,0,0.750,0.000,0.000,0.000,0.000,0.000,7,0,1,0,1

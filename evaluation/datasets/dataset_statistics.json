@@ -1,0 +1,19 @@
+{
+  "generated_at": "2026-06-12T11:20:22.476Z",
+  "total_cases": 130,
+  "by_source": {
+    "public_dialogue": 35,
+    "hand_curated": 35,
+    "llm_paraphrase": 60
+  },
+  "by_risk_level": {
+    "low": 13,
+    "medium": 15,
+    "high": 48,
+    "critical": 54,
+    "unknown": 0
+  },
+  "validation_errors": 0,
+  "duplicate_count": 0,
+  "unique_categories": 47
+}

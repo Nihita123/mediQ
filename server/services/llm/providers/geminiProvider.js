@@ -92,11 +92,14 @@ async function chat({ messages, model, temperature = 0.3, maxTokens = 1500 }) {
 
 /**
  * Check if the Gemini provider is configured with a real key.
+ * Accepts both AIza... (standard) and AQ... (AI Studio project) key formats.
  * @returns {boolean}
  */
 function isAvailable() {
   const key = process.env.GEMINI_API_KEY;
-  return Boolean(key) && key !== 'AIza...' && key.startsWith('AIza');
+  if (!key || key.length < 20) return false;
+  if (key === 'AIza...' || key.includes('your-key') || key.includes('placeholder')) return false;
+  return key.startsWith('AIza') || key.startsWith('AQ.');
 }
 
 module.exports = { chat, isAvailable, name: 'gemini' };

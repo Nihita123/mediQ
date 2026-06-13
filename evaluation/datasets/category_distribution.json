@@ -1,0 +1,312 @@
+{
+  "generated_at": "2026-06-12T11:20:22.478Z",
+  "categories": {
+    "Respiratory / Viral": {
+      "total": 18,
+      "by_source": {
+        "provided_dataset": 14,
+        "llm_paraphrase": 4
+      }
+    },
+    "Respiratory / Pneumonia": {
+      "total": 14,
+      "by_source": {
+        "provided_dataset": 8,
+        "hand_curated": 1,
+        "llm_paraphrase": 5
+      }
+    },
+    "Respiratory / Asthma": {
+      "total": 6,
+      "by_source": {
+        "provided_dataset": 2,
+        "hand_curated": 1,
+        "llm_paraphrase": 3
+      }
+    },
+    "Neurological / Multi-symptom": {
+      "total": 1,
+      "by_source": {
+        "provided_dataset": 1
+      }
+    },
+    "Chronic / Diabetes": {
+      "total": 1,
+      "by_source": {
+        "provided_dataset": 1
+      }
+    },
+    "Musculoskeletal / Autoimmune": {
+      "total": 1,
+      "by_source": {
+        "provided_dataset": 1
+      }
+    },
+    "Musculoskeletal / Joint Pain": {
+      "total": 1,
+      "by_source": {
+        "provided_dataset": 1
+      }
+    },
+    "Neurological": {
+      "total": 1,
+      "by_source": {
+        "provided_dataset": 1
+      }
+    },
+    "Respiratory / Multi-symptom": {
+      "total": 3,
+      "by_source": {
+        "provided_dataset": 1,
+        "llm_paraphrase": 2
+      }
+    },
+    "Cardiovascular / Respiratory": {
+      "total": 2,
+      "by_source": {
+        "provided_dataset": 1,
+        "llm_paraphrase": 1
+      }
+    },
+    "Dermatology": {
+      "total": 1,
+      "by_source": {
+        "provided_dataset": 1
+      }
+    },
+    "ENT / Respiratory": {
+      "total": 1,
+      "by_source": {
+        "provided_dataset": 1
+      }
+    },
+    "Musculoskeletal / Skin": {
+      "total": 2,
+      "by_source": {
+        "provided_dataset": 1,
+        "llm_paraphrase": 1
+      }
+    },
+    "Respiratory / COPD": {
+      "total": 1,
+      "by_source": {
+        "provided_dataset": 1
+      }
+    },
+    "Cardiology / Emergency": {
+      "total": 5,
+      "by_source": {
+        "hand_curated": 1,
+        "llm_paraphrase": 4
+      }
+    },
+    "Allergy / Emergency": {
+      "total": 3,
+      "by_source": {
+        "hand_curated": 1,
+        "llm_paraphrase": 2
+      }
+    },
+    "Orthopaedics / Sports Injury": {
+      "total": 10,
+      "by_source": {
+        "hand_curated": 3,
+        "llm_paraphrase": 7
+      }
+    },
+    "Neurology / Emergency": {
+      "total": 6,
+      "by_source": {
+        "hand_curated": 2,
+        "llm_paraphrase": 4
+      }
+    },
+    "Gastrointestinal / Emergency": {
+      "total": 2,
+      "by_source": {
+        "hand_curated": 1,
+        "llm_paraphrase": 1
+      }
+    },
+    "Respiratory / Emergency": {
+      "total": 1,
+      "by_source": {
+        "hand_curated": 1
+      }
+    },
+    "Neurology / Infectious Disease": {
+      "total": 3,
+      "by_source": {
+        "hand_curated": 1,
+        "llm_paraphrase": 2
+      }
+    },
+    "Obstetrics / Emergency": {
+      "total": 2,
+      "by_source": {
+        "hand_curated": 1,
+        "llm_paraphrase": 1
+      }
+    },
+    "Cardiology / Respiratory": {
+      "total": 3,
+      "by_source": {
+        "hand_curated": 1,
+        "llm_paraphrase": 2
+      }
+    },
+    "Trauma / Emergency": {
+      "total": 4,
+      "by_source": {
+        "hand_curated": 1,
+        "llm_paraphrase": 3
+      }
+    },
+    "Gastrointestinal / High Risk": {
+      "total": 1,
+      "by_source": {
+        "hand_curated": 1
+      }
+    },
+    "Orthopaedics / Trauma": {
+      "total": 3,
+      "by_source": {
+        "hand_curated": 2,
+        "llm_paraphrase": 1
+      }
+    },
+    "Cardiology / High Risk": {
+      "total": 3,
+      "by_source": {
+        "hand_curated": 2,
+        "llm_paraphrase": 1
+      }
+    },
+    "Neurology / High Risk": {
+      "total": 1,
+      "by_source": {
+        "hand_curated": 1
+      }
+    },
+    "Paediatrics / Respiratory": {
+      "total": 1,
+      "by_source": {
+        "hand_curated": 1
+      }
+    },
+    "Gastroenterology / High Risk": {
+      "total": 3,
+      "by_source": {
+        "hand_curated": 1,
+        "llm_paraphrase": 2
+      }
+    },
+    "Trauma / Multi-system": {
+      "total": 1,
+      "by_source": {
+        "hand_curated": 1
+      }
+    },
+    "Orthopaedics / Elderly": {
+      "total": 2,
+      "by_source": {
+        "hand_curated": 1,
+        "llm_paraphrase": 1
+      }
+    },
+    "Endocrinology / Emergency": {
+      "total": 2,
+      "by_source": {
+        "hand_curated": 1,
+        "llm_paraphrase": 1
+      }
+    },
+    "Ophthalmology / Emergency": {
+      "total": 1,
+      "by_source": {
+        "hand_curated": 1
+      }
+    },
+    "Infectious Disease / High Risk": {
+      "total": 1,
+      "by_source": {
+        "hand_curated": 1
+      }
+    },
+    "Orthopaedics / Sports": {
+      "total": 3,
+      "by_source": {
+        "hand_curated": 1,
+        "llm_paraphrase": 2
+      }
+    },
+    "Cardiovascular / High Risk": {
+      "total": 1,
+      "by_source": {
+        "hand_curated": 1
+      }
+    },
+    "Respiratory / Allergic": {
+      "total": 1,
+      "by_source": {
+        "hand_curated": 1
+      }
+    },
+    "Multi-symptom / Ambiguous": {
+      "total": 1,
+      "by_source": {
+        "hand_curated": 1
+      }
+    },
+    "Urology / High Risk": {
+      "total": 3,
+      "by_source": {
+        "hand_curated": 1,
+        "llm_paraphrase": 2
+      }
+    },
+    "Paediatrics / Head Trauma": {
+      "total": 1,
+      "by_source": {
+        "hand_curated": 1
+      }
+    },
+    "Respiratory / Chest Trauma": {
+      "total": 2,
+      "by_source": {
+        "hand_curated": 1,
+        "llm_paraphrase": 1
+      }
+    },
+    "Neurology / Head Trauma": {
+      "total": 2,
+      "by_source": {
+        "llm_paraphrase": 2
+      }
+    },
+    "Gastroenterology / Emergency": {
+      "total": 1,
+      "by_source": {
+        "llm_paraphrase": 1
+      }
+    },
+    "Respiratory / History": {
+      "total": 1,
+      "by_source": {
+        "llm_paraphrase": 1
+      }
+    },
+    "Orthopaedics / Sports Head": {
+      "total": 2,
+      "by_source": {
+        "llm_paraphrase": 2
+      }
+    },
+    "Respiratory / Viral Paeds": {
+      "total": 1,
+      "by_source": {
+        "llm_paraphrase": 1
+      }
+    }
+  }
+}

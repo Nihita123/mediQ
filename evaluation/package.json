@@ -1,0 +1,17 @@
+{
+  "name": "mediq-evaluation",
+  "version": "1.0.0",
+  "description": "AI evaluation and benchmarking subsystem for MediQ",
+  "type": "commonjs",
+  "scripts": {
+    "build-dataset":       "node scripts/build_dataset.js",
+    "validate-dataset":    "node scripts/validate_dataset.js",
+    "generate-paraphrases":"node scripts/generate_paraphrases.js",
+    "evaluate":            "node scripts/evaluate.js",
+    "generate-report":     "node scripts/generate_report.js",
+    "full-pipeline":       "npm run build-dataset && npm run validate-dataset && npm run evaluate && npm run generate-report"
+  },
+  "dependencies": {
+    "axios": "^1.7.2"
+  }
+}
