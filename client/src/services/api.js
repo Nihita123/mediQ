@@ -36,8 +36,10 @@ api.interceptors.response.use(
     if (error.response?.status === 401) {
       localStorage.removeItem('mediq_token');
       localStorage.removeItem('mediq_user');
-      // Redirect only if not already on a public page
-      if (!window.location.pathname.startsWith('/login')) {
+      // Only redirect from protected pages — not from login/register/landing
+      const publicPaths = ['/login', '/register', '/'];
+      const isPublic    = publicPaths.some((p) => window.location.pathname === p);
+      if (!isPublic) {
         window.location.href = '/login';
       }
     }

@@ -61,15 +61,16 @@ const login = asyncHandler(async (req, res) => {
     throw new Error('Invalid email or password');
   }
 
+  // Check account status BEFORE expensive bcrypt compare
+  if (!user.isActive) {
+    res.status(401);
+    throw new Error('Your account has been deactivated. Please contact support.');
+  }
+
   const isMatch = await user.comparePassword(password);
   if (!isMatch) {
     res.status(401);
     throw new Error('Invalid email or password');
-  }
-
-  if (!user.isActive) {
-    res.status(401);
-    throw new Error('Your account has been deactivated. Please contact support.');
   }
 
   const token = generateToken(user._id);
@@ -108,6 +109,10 @@ const updateProfile = asyncHandler(async (req, res) => {
   if (name) user.name = name;
 
   if (currentPassword && newPassword) {
+    if (newPassword.length < 8) {
+      res.status(400);
+      throw new Error('New password must be at least 8 characters');
+    }
     const isMatch = await user.comparePassword(currentPassword);
     if (!isMatch) {
       res.status(400);

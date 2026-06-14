@@ -1,8 +1,13 @@
+// @refresh reset
 /**
  * context/AuthContext.jsx — Global authentication state
  *
  * Provides user object, login, logout, and register actions
  * to the entire application via React Context.
+ *
+ * Note: @refresh reset tells Vite to do a full component reset on HMR
+ * instead of a partial update, which avoids the Fast Refresh warning
+ * caused by mixing component (AuthProvider) and hook (useAuth) exports.
  */
 
 import { createContext, useContext, useEffect, useState } from 'react';
@@ -16,14 +21,30 @@ export function AuthProvider({ children }) {
 
   // ─── Restore session from localStorage on mount ──────────────────────────────
   useEffect(() => {
-    const storedUser = localStorage.getItem('mediq_user');
+    const storedUser  = localStorage.getItem('mediq_user');
     const storedToken = localStorage.getItem('mediq_token');
 
     if (storedUser && storedToken) {
       try {
+        // Optimistically set user from cache so the UI doesn't flash
         setUser(JSON.parse(storedUser));
+        // Silently verify the token is still valid in the background
+        authService.getMe()
+          .then((data) => {
+            // Update user with latest data from server
+            if (data?.user) {
+              setUser(data.user);
+              localStorage.setItem('mediq_user', JSON.stringify(data.user));
+            }
+          })
+          .catch(() => {
+            // Token expired or invalid — clear everything
+            localStorage.removeItem('mediq_token');
+            localStorage.removeItem('mediq_user');
+            setUser(null);
+          });
       } catch {
-        // Malformed data — clear it
+        // Malformed cache — clear it
         localStorage.removeItem('mediq_user');
         localStorage.removeItem('mediq_token');
       }

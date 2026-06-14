@@ -41,8 +41,12 @@ export default function RegisterPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!pwRules.length || !pwRules.match) {
-      setError('Please meet all password requirements.');
+    if (!pwRules.length) {
+      setError('Password must be at least 8 characters.');
+      return;
+    }
+    if (!pwRules.match) {
+      setError('Passwords do not match.');
       return;
     }
 

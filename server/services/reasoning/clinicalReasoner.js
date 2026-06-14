@@ -173,8 +173,18 @@ function buildAcknowledgement(ctx, lastMessage) {
   }
 
   if (ctx.primarySymptom) {
-    const dur = ctx.duration ? ` for ${ctx.duration}` : '';
-    return `I've noted that you're experiencing ${ctx.primarySymptom}${dur}.`;
+    // Only append duration if it reads naturally without "for" prefix
+    // e.g. "2 hours" → "for 2 hours"  |  "since this morning" → (skip)  |  "1 hour ago" → (skip)
+    const dur = ctx.duration;
+    let durSuffix = '';
+    if (dur) {
+      const lower = dur.toLowerCase();
+      // Only prepend "for" if duration is a plain time quantity, not a relative phrase
+      if (!lower.startsWith('since') && !lower.includes(' ago') && !lower.startsWith('from')) {
+        durSuffix = ` for ${dur}`;
+      }
+    }
+    return `I've noted that you're experiencing ${ctx.primarySymptom}${durSuffix}.`;
   }
 
   return '';

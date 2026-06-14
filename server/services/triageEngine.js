@@ -365,7 +365,17 @@ function rulesHandleFollowUpQuestions(session, userText) {
     return { reply: traumaQ.text };
   }
 
-  // 5. Then predefined flows
+  // 5. Then predefined flows — use all available symptom keys
+  const currentSymptomKeys = getSymptomKeys(session);
+
+  // If symptomKeys is still empty (LLM sessions may not populate it),
+  // derive from extractedSymptoms as a last resort
+  if (currentSymptomKeys.length === 0 && session.extractedSymptoms.length > 0) {
+    const { extractSymptoms: re } = require('./symptomExtractor');
+    const derivedKeys = session.extractedSymptoms.flatMap(s => re(s).symptomKeys);
+    session.symptomKeys = Array.from(new Set(derivedKeys));
+  }
+
   const nextQ = rulesGetNextQuestion(getSymptomKeys(session), answeredIds);
   if (!nextQ) return rulesHandleAssessmentReady(session);
 
@@ -459,6 +469,14 @@ async function processMessage(session, userText) {
     return rulesHandleSymptomCollection(session, userText);
   }
   if (session.triageState === STATE.FOLLOW_UP_QUESTIONS) {
+    return rulesHandleFollowUpQuestions(session, userText);
+  }
+
+  // ── Unknown / corrupt state recovery ────────────────────────────────────────
+  // If the session already has symptoms and questions, resume follow-up.
+  // Only reset to SYMPTOM_COLLECTION for truly fresh sessions.
+  if (session.extractedSymptoms?.length > 0 || session.answeredQuestions?.length > 0) {
+    session.triageState = STATE.FOLLOW_UP_QUESTIONS;
     return rulesHandleFollowUpQuestions(session, userText);
   }
 

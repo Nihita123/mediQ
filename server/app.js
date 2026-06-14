@@ -3,9 +3,11 @@
  */
 
 const express = require('express');
-const cors = require('cors');
-const morgan = require('morgan');
-const dotenv = require('dotenv');
+const cors    = require('cors');
+const morgan  = require('morgan');
+// Load env vars FIRST — before any other local require that may read process.env
+const dotenv  = require('dotenv');
+dotenv.config();
 
 const connectDB = require('./config/db');
 const { errorHandler, notFound } = require('./middleware/errorMiddleware');
@@ -17,7 +19,7 @@ const reportRoutes = require('./routes/reportRoutes');
 const triageRoutes = require('./routes/triageRoutes');
 
 // Load env vars
-dotenv.config();
+// (already called at top of app.js before any module reads process.env)
 
 // Connect to MongoDB
 connectDB();
