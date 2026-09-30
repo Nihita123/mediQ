@@ -25,7 +25,7 @@ const NAV_ITEMS = [
 ];
 
 const DOCTOR_ITEMS = [
-  { to: '/reports', label: 'Patient Reports', icon: FileText },
+  { to: '/sessions', label: 'Patient Sessions', icon: FileText },
 ];
 
 export default function Sidebar({ open, onClose }) {

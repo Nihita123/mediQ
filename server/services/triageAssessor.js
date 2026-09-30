@@ -70,6 +70,55 @@ const RISK_RULES = [
     department: 'Urgent Care — Respiratory',
     reason: 'Shortness of breath requires timely assessment.',
   },
+  // ── Palpitations ─────────────────────────────────────────────────────────
+  {
+    OR: ['palpitations'],
+    answerContains: { questionId: 'palpitations_associated', keywords: ['chest', 'dizziness', 'faint', 'shortness', 'breathless'] },
+    riskLevel: 'high',
+    department: 'Emergency / Urgent Care — Cardiology',
+    reason: 'Palpitations with associated chest pain or dizziness require urgent cardiac assessment.',
+  },
+  {
+    OR: ['palpitations'],
+    riskLevel: 'medium',
+    department: 'General Practice / Cardiology',
+    reason: 'Palpitations require clinical evaluation to exclude arrhythmia.',
+  },
+  // ── Vision Changes ────────────────────────────────────────────────────────
+  {
+    OR: ['vision_changes'],
+    answerContains: { questionId: 'vision_headache', keywords: ['yes', 'headache', 'pain', 'sudden'] },
+    riskLevel: 'critical',
+    department: 'Emergency — Neurology / Ophthalmology',
+    reason: 'Sudden vision change with headache or eye pain may indicate stroke or acute glaucoma.',
+  },
+  {
+    OR: ['vision_changes'],
+    riskLevel: 'high',
+    department: 'Urgent Care — Ophthalmology / Neurology',
+    reason: 'New or sudden vision changes require urgent assessment to rule out neurological or ocular emergency.',
+  },
+  // ── Trauma / Injury ───────────────────────────────────────────────────────
+  {
+    OR: ['trauma_injury', 'joint_pain'],
+    answerContains: { questionId: 'trauma_weight_bearing', keywords: ["can't", 'cannot', 'unable', 'no', 'too painful'] },
+    riskLevel: 'high',
+    department: 'Orthopaedics / Urgent Care',
+    reason: 'Traumatic injury with inability to bear weight — likely fracture or significant ligament damage.',
+  },
+  {
+    OR: ['trauma_injury', 'joint_pain'],
+    answerContains: { questionId: 'trauma_pop_snap', keywords: ['pop', 'snap', 'crack', 'heard', 'felt'] },
+    riskLevel: 'high',
+    department: 'Orthopaedics / Urgent Care',
+    reason: 'Audible/palpable pop at time of injury suggests ligament tear or fracture.',
+  },
+  {
+    OR: ['trauma_injury', 'joint_pain'],
+    riskLevel: 'medium',
+    department: 'Urgent Care / Orthopaedics',
+    reason: 'Musculoskeletal injury requires clinical assessment to rule out fracture.',
+  },
   {
     symptomKeys: ['headache'],
     answerContains: { questionId: 'headache_fever', keywords: ['yes', 'stiff neck', 'both'] },

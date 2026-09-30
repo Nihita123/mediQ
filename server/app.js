@@ -5,9 +5,25 @@
 const express = require('express');
 const cors    = require('cors');
 const morgan  = require('morgan');
+const helmet  = require('helmet');
 // Load env vars FIRST — before any other local require that may read process.env
 const dotenv  = require('dotenv');
 dotenv.config();
+
+// ─── Production environment validation ────────────────────────────────────────
+// Fail fast on startup if critical variables are missing in production.
+if (process.env.NODE_ENV === 'production') {
+  const REQUIRED_PROD_VARS = ['MONGO_URI', 'JWT_SECRET', 'ALLOWED_ORIGINS'];
+  const missing = REQUIRED_PROD_VARS.filter((v) => !process.env[v]);
+  if (missing.length > 0) {
+    console.error(`\n❌ Missing required production environment variables:\n   ${missing.join(', ')}\n`);
+    process.exit(1);
+  }
+  if (process.env.JWT_SECRET && process.env.JWT_SECRET.length < 32) {
+    console.error('\n❌ JWT_SECRET must be at least 32 characters in production.\n');
+    process.exit(1);
+  }
+}
 
 const connectDB = require('./config/db');
 const { errorHandler, notFound } = require('./middleware/errorMiddleware');
@@ -18,13 +34,13 @@ const sessionRoutes = require('./routes/sessionRoutes');
 const reportRoutes = require('./routes/reportRoutes');
 const triageRoutes = require('./routes/triageRoutes');
 
-// Load env vars
-// (already called at top of app.js before any module reads process.env)
-
 // Connect to MongoDB
 connectDB();
 
 const app = express();
+
+// ─── Security headers ─────────────────────────────────────────────────────────
+app.use(helmet());
 
 // ─── Middleware ────────────────────────────────────────────────────────────────
 
@@ -53,7 +69,8 @@ app.use(express.urlencoded({ extended: true }));
 
 // HTTP request logger (only in non-test environments)
 if (process.env.NODE_ENV !== 'test') {
-  app.use(morgan('dev'));
+  // 'combined' gives richer logs in production; 'dev' is coloured for local dev
+  app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
 }
 
 // ─── Health Check ──────────────────────────────────────────────────────────────
@@ -74,7 +91,21 @@ app.use(errorHandler);
 // ─── Start Server ─────────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
-  console.log(`\n🏥 MediQ API running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}\n`);
+  console.log(`\n🏥 MediQ API running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
+
+  // Inform operator which LLM provider is active (or if running rules-only)
+  try {
+    const llmRouter = require('./services/llm/llmRouter');
+    const provider  = llmRouter.getProviderName();
+    if (provider === 'none') {
+      console.log('⚠️  No LLM provider configured — running in rule-based fallback mode.');
+    } else {
+      console.log(`🤖 LLM provider: ${provider}`);
+    }
+  } catch {
+    // Non-fatal
+  }
+  console.log('');
 });
 
 module.exports = app;

@@ -45,6 +45,14 @@ export default function RegisterPage() {
       setError('Password must be at least 8 characters.');
       return;
     }
+    if (!pwRules.upper) {
+      setError('Password must contain at least one uppercase letter.');
+      return;
+    }
+    if (!pwRules.number) {
+      setError('Password must contain at least one number.');
+      return;
+    }
     if (!pwRules.match) {
       setError('Passwords do not match.');
       return;

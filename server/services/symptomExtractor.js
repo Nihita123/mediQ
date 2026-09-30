@@ -306,22 +306,46 @@ function extractClinicalContext(text) {
     .filter((f) => f.pattern.test(lower))
     .map((f) => f.label);
 
-  // Duration — look for time expressions
+  // Duration — match full time expressions, not just one word after "since"
   const durationMatch = lower.match(
-    /(\d+)\s*(minute|min|hour|hr|day|week|month)s?\s+ago|since\s+(\w+)/
+    /(\d+)\s*(minute|min|hour|hr|day|week|month)s?\s+ago|since\s+(this\s+)?(morning|afternoon|evening|night|yesterday|last\s+\w+)|since\s+\d+\s*(hour|day|minute|week)s?|for\s+\d+\s*(minute|min|hour|hr|day|week|month)s?/
   );
   const duration = durationMatch ? durationMatch[0] : null;
 
-  // Severity — numeric or descriptive
-  const severityMatch = lower.match(/\b([1-9]|10)\s*(?:out\s+of\s*10|\/\s*10)\b/) ||
-                        lower.match(/\b(mild|moderate|severe|extreme|excruciating|very\s+bad|really\s+bad|badly)\b/);
-  const severity = severityMatch ? severityMatch[0] : null;
+  // Severity — numeric or descriptive, trimmed cleanly
+  const severityNumMatch  = lower.match(/\b([1-9]|10)\s*(?:out\s+of\s*10|\/\s*10)\b/);
+  const severityDescMatch = lower.match(/\b(mild|moderate|severe|extreme|excruciating|very\s+bad|really\s+bad|badly)\b/);
+  const severity = severityNumMatch
+    ? severityNumMatch[0].trim()
+    : severityDescMatch
+      ? severityDescMatch[1].trim()   // use capture group to avoid trailing punctuation
+      : null;
 
-  // Mechanism of injury
+  // Mechanism of injury — extend match window to 60 chars
   const mechMatch = lower.match(
-    /(fell?|slipped?|twisted?|sprained?|hit\s+\w+|collided?|crashed?|while\s+\w+ing)[^.]{0,40}/
+    /(fell?|slipped?|twisted?|sprained?|hit\s+\w+|collided?|crashed?|while\s+\w+ing)[^.]{0,60}/
   );
   const mechanismOfInjury = mechMatch ? mechMatch[0].trim() : null;
+
+  // Body part extraction
+  const bodyPartPatterns = [
+    { pattern: /\b(ankle)\b/,              part: 'ankle' },
+    { pattern: /\b(knee)\b/,               part: 'knee' },
+    { pattern: /\b(foot|feet)\b/,          part: 'foot' },
+    { pattern: /\b(leg)\b/,                part: 'leg' },
+    { pattern: /\b(arm)\b/,                part: 'arm' },
+    { pattern: /\b(wrist)\b/,              part: 'wrist' },
+    { pattern: /\b(elbow)\b/,              part: 'elbow' },
+    { pattern: /\b(shoulder)\b/,           part: 'shoulder' },
+    { pattern: /\b(hip)\b/,                part: 'hip' },
+    { pattern: /\b(head|skull)\b/,         part: 'head' },
+    { pattern: /\b(neck)\b/,               part: 'neck' },
+    { pattern: /\b(back)\b/,               part: 'back' },
+    { pattern: /\b(chest)\b/,              part: 'chest' },
+    { pattern: /\b(stomach|abdomen|belly|tummy)\b/, part: 'abdomen' },
+  ];
+  const bodyPartMatch = bodyPartPatterns.find((b) => b.pattern.test(lower));
+  const bodyPart = bodyPartMatch ? bodyPartMatch.part : null;
 
   // Build risk factors
   const riskFactors = [];
@@ -339,12 +363,50 @@ function extractClinicalContext(text) {
     duration,
     severity,
     mechanismOfInjury,
+    bodyPart,
     riskFactors,
   };
 }
 
+/**
+ * Merge two symptom arrays, deduplicating case-insensitively and
+ * removing compound phrases that are already covered by their parts.
+ *
+ * Examples:
+ *   "loose motions and stomach pain" is dropped if both
+ *   "loose motions" and "stomach pain" are already present.
+ *   "Diarrhea" is dropped if "diarrhea" already exists.
+ */
 function mergeSymptoms(existing, incoming) {
-  return Array.from(new Set([...existing, ...incoming]));
+  // Normalise everything to lowercase for dedup comparison
+  const seen = new Set(existing.map((s) => s.toLowerCase().trim()));
+  const result = [...existing];
+
+  for (const item of incoming) {
+    const lower = item.toLowerCase().trim();
+    if (!lower) continue;
+
+    // Skip exact duplicates (case-insensitive)
+    if (seen.has(lower)) continue;
+
+    // Skip compound "X and Y" phrases where both X and Y already exist
+    if (lower.includes(' and ')) {
+      const parts = lower.split(/\s+and\s+/).map((p) => p.trim());
+      if (parts.every((p) => seen.has(p))) continue;
+    }
+
+    // Skip if this is a substring match of something already present
+    // e.g. "loose motions and stomach pain" when both parts exist
+    const alreadyCovered = lower.includes(' and ') &&
+      lower.split(/\s+and\s+/).map((p) => p.trim()).filter((p) => seen.has(p)).length >=
+      lower.split(/\s+and\s+/).length - 1;
+    if (alreadyCovered) continue;
+
+    seen.add(lower);
+    result.push(item);
+  }
+
+  return result;
 }
 
 function getSymptomByKey(key) {

@@ -59,6 +59,11 @@ const userSchema = new mongoose.Schema(
   }
 );
 
+// ─── Indexes ──────────────────────────────────────────────────────────────────
+// email: unique index is already created by `unique: true` on the field definition above.
+// createdAt: useful for admin queries sorted by registration date.
+userSchema.index({ createdAt: -1 });
+
 // ─── Hooks ────────────────────────────────────────────────────────────────────
 
 // Hash password before saving if it was modified

@@ -58,6 +58,13 @@ NATURAL LANGUAGE UNDERSTANDING — recognise semantic equivalents:
 - "can't walk properly", "limping", "unable to put weight" → functionalLimitations: ["difficulty walking"]
 - "I fell", "slipped", "twisted it" → recentTrauma: true, mechanismOfInjury: "fall"
 
+SYMPTOM LIST RULES — critical:
+- Each entry in symptoms[] must be a SINGLE symptom, never a compound phrase
+- WRONG: symptoms: ["loose motions and stomach pain"]
+- RIGHT: symptoms: ["loose motions", "stomach pain"]
+- Never repeat the same symptom with different capitalisation or wording
+- If the patient says "loose motions" do NOT also add "diarrhea" as a separate entry — pick one canonical term
+
 SAFETY: Return ONLY the JSON object. No prose, no markdown, no explanations.`;
 }
 

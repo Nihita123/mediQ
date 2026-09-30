@@ -7,6 +7,7 @@
  */
 
 const Session = require('../models/sessionModel');
+const Report  = require('../models/reportModel');
 const asyncHandler = require('../utils/asyncHandler');
 const { processMessage, STATE } = require('../services/triageEngine');
 
@@ -86,7 +87,8 @@ const sendMessage = asyncHandler(async (req, res) => {
   const trimmedMessage = message.trim();
 
   // Run the triage engine — mutates session fields in memory
-  const { reply } = await processMessage(session, trimmedMessage);
+  const result = await processMessage(session, trimmedMessage);
+  const reply  = result?.reply || "I'm processing your information. Please describe your symptoms and I'll help guide you.";
 
   // ── Persist EVERYTHING via $set ────────────────────────────────────────────
   // Using findByIdAndUpdate with $set guarantees every field is written to
@@ -124,6 +126,28 @@ const sendMessage = asyncHandler(async (req, res) => {
     },
     { new: false } // we don't need the updated doc back — we already have all data
   );
+
+  // ── Auto-create report when session completes ──────────────────────────────
+  // Creates a Report document automatically on first completion so that
+  // stats.reports on the dashboard shows accurate counts.
+  if (session.triageState === STATE.SUMMARY_READY) {
+    try {
+      const existing = await Report.findOne({ sessionId });
+      if (!existing) {
+        await Report.create({
+          sessionId,
+          patientId:       session.userId,
+          summary:         session.summary || '',
+          recommendations: [],
+          symptoms:        session.extractedSymptoms || [],
+          riskLevel:       session.riskLevel || 'unknown',
+        });
+      }
+    } catch (reportErr) {
+      // Non-fatal — report creation failure should not break the triage response
+      console.error('[Triage] Auto-report creation failed:', reportErr.message);
+    }
+  }
 
   res.json({
     aiReply:           reply,

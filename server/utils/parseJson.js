@@ -5,6 +5,28 @@
  * This utility strips all of that and returns parsed JSON or throws.
  */
 
+function repairTruncatedJson(str) {
+  let s = str.trim().replace(/,\s*$/, '');
+  const stack = [];
+  let inString = false;
+  let escaped = false;
+
+  for (const ch of s) {
+    if (escaped) { escaped = false; continue; }
+    if (ch === '\\' && inString) { escaped = true; continue; }
+    if (ch === '"') { inString = !inString; continue; }
+    if (inString) continue;
+    if (ch === '{' || ch === '[') stack.push(ch);
+    else if (ch === '}' || ch === ']') stack.pop();
+  }
+
+  while (stack.length) {
+    const open = stack.pop();
+    s += open === '{' ? '}' : ']';
+  }
+  return s;
+}
+
 /**
  * Parse JSON from an LLM response string.
  * Handles:
@@ -37,10 +59,23 @@ function parseLLMJson(text) {
   // Try to extract the first JSON object or array from the text
   const objectMatch = cleaned.match(/\{[\s\S]*\}/);
   const arrayMatch  = cleaned.match(/\[[\s\S]*\]/);
+  const partialObject = !objectMatch ? cleaned.match(/\{[\s\S]*/)?.[0] : null;
 
   if (objectMatch) {
     try {
       return JSON.parse(objectMatch[0]);
+    } catch {
+      try {
+        return JSON.parse(repairTruncatedJson(objectMatch[0]));
+      } catch {
+        // Fall through
+      }
+    }
+  }
+
+  if (partialObject) {
+    try {
+      return JSON.parse(repairTruncatedJson(partialObject));
     } catch {
       // Fall through
     }

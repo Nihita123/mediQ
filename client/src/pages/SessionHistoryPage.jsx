@@ -25,6 +25,11 @@ export default function SessionHistoryPage() {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
 
+  // Reset to page 1 whenever a filter changes
+  const handleRiskFilter = (val) => { setRiskFilter(val); setPage(1); };
+  const handleStatusFilter = (val) => { setStatusFilter(val); setPage(1); };
+  const handleSearch = (val) => { setSearch(val); setPage(1); };
+
   useEffect(() => {
     const fetch = async () => {
       setLoading(true);
@@ -60,7 +65,9 @@ export default function SessionHistoryPage() {
         <div>
           <h1 className="text-2xl font-bold text-foreground">Session History</h1>
           <p className="text-muted-foreground text-sm mt-1">
-            All {pagination.total} of your previous triage sessions.
+            {pagination.total > 0
+              ? `All ${pagination.total} of your previous triage sessions.`
+              : 'Your triage session history.'}
           </p>
         </div>
         <button
@@ -81,7 +88,7 @@ export default function SessionHistoryPage() {
             type="search"
             placeholder="Search symptoms or summary..."
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => handleSearch(e.target.value)}
             className="w-full pl-9 pr-4 py-2 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
           />
         </div>
@@ -91,7 +98,7 @@ export default function SessionHistoryPage() {
           <Filter className="h-4 w-4 text-muted-foreground" />
           <select
             value={riskFilter}
-            onChange={(e) => setRiskFilter(e.target.value)}
+            onChange={(e) => handleRiskFilter(e.target.value)}
             className="text-sm border border-input rounded-lg px-3 py-2 bg-background focus:outline-none focus:ring-2 focus:ring-ring"
             aria-label="Filter by risk level"
           >
@@ -104,7 +111,7 @@ export default function SessionHistoryPage() {
 
           <select
             value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
+            onChange={(e) => handleStatusFilter(e.target.value)}
             className="text-sm border border-input rounded-lg px-3 py-2 bg-background focus:outline-none focus:ring-2 focus:ring-ring"
             aria-label="Filter by status"
           >

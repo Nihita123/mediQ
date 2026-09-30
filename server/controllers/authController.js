@@ -30,8 +30,7 @@ const register = asyncHandler(async (req, res) => {
     name,
     email,
     password,
-    // Only allow patient self-registration; admins create doctors separately
-    role: role === 'patient' ? 'patient' : 'patient',
+    role: 'patient', // Public registration is always patient; promote via DB
   });
 
   const token = generateToken(user._id);

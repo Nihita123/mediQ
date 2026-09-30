@@ -1,4 +1,42 @@
+# ─── Dependencies ─────────────────────────────────────────────────────────────
 client/node_modules/
 server/node_modules/
 evaluation/node_modules/
+node_modules/
+
+# ─── Environment / Secrets ────────────────────────────────────────────────────
+# NEVER commit real .env files — use .env.example instead
 .env
+.env.local
+.env.production
+.env.staging
+.env.development.local
+.env.test.local
+.env.production.local
+**/.env
+**/.env.local
+**/.env.production
+
+# ─── Build outputs ────────────────────────────────────────────────────────────
+client/dist/
+client/build/
+dist/
+build/
+
+# ─── Logs ─────────────────────────────────────────────────────────────────────
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+evaluation/reports/evaluate_run.log
+
+# ─── OS / Editor ──────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.vscode/settings.json
+.idea/
+
+# ─── Misc ─────────────────────────────────────────────────────────────────────
+*.tgz
+*.zip
+coverage/

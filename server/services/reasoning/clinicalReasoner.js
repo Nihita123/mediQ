@@ -199,16 +199,23 @@ function buildAcknowledgement(ctx, lastMessage) {
  */
 function buildReply(questionDecision, ctx, lastMessage) {
   if (!questionDecision) {
-    return "Could you describe what you're experiencing in more detail?";
+    return "Could you tell me more about your symptoms?";
   }
-
-  const ack = questionDecision.contextAcknowledgement
-    || buildAcknowledgement(ctx, lastMessage);
 
   if (questionDecision.decision === 'assessment_ready') return null; // caller handles
 
   const question = questionDecision.questionText;
-  if (!question) return buildAcknowledgement(ctx, lastMessage) || "Could you describe your symptoms in more detail?";
+
+  // If the LLM returned no question text (e.g. partial/rate-limited response),
+  // do NOT fall back to the acknowledgement string — that causes the repeating
+  // "I've noted that you're experiencing X" loop. Return null so the caller
+  // can fall through to the rules engine for a concrete question.
+  if (!question) return null;
+
+  // Only use contextAcknowledgement from the LLM decision — do NOT regenerate
+  // buildAcknowledgement() here, as that produces the same "I've noted..." prefix
+  // on every follow-up turn and makes the conversation feel stuck.
+  const ack = questionDecision.contextAcknowledgement || null;
 
   return ack ? `${ack}\n\n${question}` : question;
 }
@@ -222,8 +229,20 @@ function buildReply(questionDecision, ctx, lastMessage) {
  * @returns {string}
  */
 function buildFirstResponse(ctx, firstQuestion, symptomLabels) {
-  const noted = symptomLabels.length > 0
-    ? `I've noted: ${symptomLabels.map(s => `• ${s}`).join('\n')}`
+  // Deduplicate labels case-insensitively and drop compound "X and Y" phrases
+  const seen = new Set();
+  const cleanLabels = symptomLabels.filter((s) => {
+    if (!s) return false;
+    const lower = s.toLowerCase().trim();
+    if (seen.has(lower)) return false;
+    // Drop compound phrases — they just create noise in the bullet list
+    if (lower.includes(' and ')) return false;
+    seen.add(lower);
+    return true;
+  });
+
+  const noted = cleanLabels.length > 0
+    ? `I've noted: ${cleanLabels.map((s) => `• ${s}`).join('\n')}`
     : '';
 
   const ack = buildAcknowledgement(ctx, '');

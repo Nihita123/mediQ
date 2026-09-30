@@ -26,6 +26,15 @@ const sourceArg  = args.indexOf('--source');
 const LIMIT      = limitArg !== -1  ? parseInt(args[limitArg + 1])  : Infinity;
 const FILTER_SRC = sourceArg !== -1 ? args[sourceArg + 1]           : null;
 
+// --efficient: only 2 turns per case (1 symptom extraction + 1 follow-up).
+// Dramatically reduces API calls for LLM providers with rate limits.
+// Use for quick benchmarking; remove flag for full conversation evaluation.
+const EFFICIENT_MODE = args.includes('--efficient');
+
+// Delay between cases (ms) to respect LLM rate limits (default 2s for Gemini free tier)
+const delayArg  = args.indexOf('--delay');
+const CASE_DELAY_MS = delayArg !== -1 ? parseInt(args[delayArg + 1]) : 2000;
+
 // ─── Load server modules (no DB, no HTTP — direct engine calls) ───────────────
 // Load dotenv from server's node_modules (evaluation has no dotenv dependency)
 try {
@@ -59,6 +68,9 @@ console.log(`\nMediQ Evaluation Pipeline`);
 console.log(`${'═'.repeat(50)}`);
 console.log(`Cases to evaluate : ${cases.length}`);
 console.log(`Filter by source  : ${FILTER_SRC || 'all'}`);
+console.log(`LLM provider      : ${(()=>{ try { const l=require(path.join(ROOT,'server','services','llm','llmRouter')); return l.getProviderName(); } catch{return 'unknown';} })()}`);
+console.log(`Mode              : ${EFFICIENT_MODE ? 'efficient (2 turns/case)' : 'full (up to 7 turns/case)'}`);
+console.log(`Case delay        : ${CASE_DELAY_MS}ms`);
 console.log(`Started at        : ${new Date().toISOString()}\n`);
 
 // ─── Mock session factory ─────────────────────────────────────────────────────
@@ -174,7 +186,7 @@ async function runCase(c) {
   let repeatedQuestions = 0;
   let contextRetained = true;
 
-  // Turn 1: initial complaint
+  // Turn 1: initial complaint — uses LLM for extraction + first question
   const r0 = await processMessage(session, c.patient_input);
   session.messages.push({ role: 'user',      content: c.patient_input, timestamp: new Date() });
   session.messages.push({ role: 'assistant', content: r0.reply,        timestamp: new Date() });
@@ -187,7 +199,9 @@ async function runCase(c) {
 
   session = reloadSession(session);
 
-  // Simulate answering follow-up questions (max 6 turns)
+  // Subsequent turns: switch to rules-only to avoid rate limits during evaluation.
+  // We temporarily disable LLM for follow-up turns by checking available providers.
+  // The LLM's entity extraction from turn 1 is what we're evaluating.
   const SIMULATED_ANSWERS = [
     'About 30 minutes ago',
     'The pain is 7 out of 10',
@@ -197,11 +211,23 @@ async function runCase(c) {
     'No medications currently',
   ];
 
-  for (let turn = 0; turn < 6; turn++) {
+  const maxTurns = EFFICIENT_MODE ? 2 : 6;
+
+  for (let turn = 0; turn < maxTurns; turn++) {
+
     if (session.triageState === STATE.SUMMARY_READY || session.status === 'completed') break;
 
     const answer = SIMULATED_ANSWERS[turn] || 'I am not sure';
+
+    // Force rules engine for follow-up turns — LLM performance is measured from Turn 1 only.
+    // This eliminates ~6 unnecessary LLM calls per case and avoids rate limit issues.
+    const savedAiEngine = session.aiEngine;
+    if (session.triageState === STATE.FOLLOW_UP_QUESTIONS) {
+      session.aiEngine = 'rules';
+    }
+
     const r = await processMessage(session, answer);
+    session.aiEngine = savedAiEngine; // restore original engine tag
 
     session.messages.push({ role: 'user',      content: answer,    timestamp: new Date() });
     session.messages.push({ role: 'assistant', content: r.reply,   timestamp: new Date() });
@@ -346,6 +372,11 @@ async function main() {
     } catch (err) {
       console.error(`\n  ERROR on ${c.id}: ${err.message}`);
       results.push({ id: c.id, source: c.source, category: c.category, error: err.message });
+    }
+
+    // Rate-limit delay between cases (important for free-tier LLM APIs)
+    if (CASE_DELAY_MS > 0 && done < cases.length) {
+      await new Promise(r => setTimeout(r, CASE_DELAY_MS));
     }
   }
 

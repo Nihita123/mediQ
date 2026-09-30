@@ -31,25 +31,26 @@ export default function DashboardPage() {
       try {
         setLoading(true);
 
-        // Fetch recent sessions for display (limit 4) from triage history
-        // Fetch all sessions (high limit) separately to compute accurate stats
-        const [recentData, allData, reportsData] = await Promise.all([
+        // Fetch recent sessions (limit 4) and reports in parallel.
+        // We use the pagination.total for the session count — no need for a
+        // second "fetch all" call that hits validation limits.
+        const [recentData, reportsData] = await Promise.all([
           triageService.getHistory({ limit: 4, page: 1 }),
-          triageService.getHistory({ limit: 200, page: 1 }),
           reportService.getByPatient(user._id).catch(() => ({ reports: [] })),
         ]);
 
         const recentSessions = recentData.sessions || [];
-        const allSessions    = allData.sessions    || [];
 
-        // Count high/critical risk across ALL sessions, not just the last 4
-        const highRisk = allSessions.filter(
+        // Count high/critical risk from the sessions we fetched.
+        // For an accurate all-time count we'd need a dedicated stats endpoint,
+        // but for an MVP dashboard the recent 4 is a reasonable indicator.
+        const highRisk = recentSessions.filter(
           (s) => s.riskLevel === 'high' || s.riskLevel === 'critical'
         ).length;
 
         setSessions(recentSessions);
         setStats({
-          total:   recentData.pagination?.total ?? allSessions.length,
+          total:   recentData.pagination?.total ?? recentSessions.length,
           high:    highRisk,
           reports: reportsData.reports?.length || 0,
         });
@@ -64,7 +65,7 @@ export default function DashboardPage() {
     fetchData();
   }, [user._id]);
 
-  const handleNewTriage = async () => {
+  const handleNewTriage = () => {
     navigate('/triage/new');
   };
 
@@ -111,7 +112,7 @@ export default function DashboardPage() {
             title="High Risk Flags"
             value={stats.high}
             icon={AlertTriangle}
-            trend="Sessions flagged high or critical"
+            trend="High/critical in recent sessions"
             color="red"
           />
           <DashboardCard

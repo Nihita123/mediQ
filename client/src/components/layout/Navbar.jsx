@@ -5,7 +5,7 @@
  */
 
 import { Link, useNavigate } from 'react-router-dom';
-import { Menu, Bell, ChevronDown, User, LogOut, Settings } from 'lucide-react';
+import { Menu, Bell, ChevronDown, User, LogOut } from 'lucide-react';
 import { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 
@@ -88,14 +88,6 @@ export default function Navbar({ onMenuToggle }) {
               >
                 <User className="h-4 w-4" />
                 My Profile
-              </Link>
-              <Link
-                to="/profile"
-                className="flex items-center gap-2 px-4 py-2.5 text-sm text-foreground hover:bg-accent transition-colors"
-                onClick={() => setDropdownOpen(false)}
-              >
-                <Settings className="h-4 w-4" />
-                Settings
               </Link>
 
               <div className="border-t border-border mt-1" />

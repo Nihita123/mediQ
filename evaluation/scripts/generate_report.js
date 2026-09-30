@@ -96,7 +96,7 @@ ${mdTable(
   ]
 )}
 
-Entities evaluated: `bodyPart`, `severity`, `duration`, `mechanismOfInjury`, `functionalLimitation`
+Entities evaluated: \`bodyPart\`, \`severity\`, \`duration\`, \`mechanismOfInjury\`, \`functionalLimitation\`
 
 ---
 
